@@ -40,6 +40,8 @@ using namespace std;
 #define NUM_THREADS_X 32
 #define NUM_THREADS_Y 30
 
+#define MARGIN_SIZE 3
+
 void kernel(
 		byte* d_in,
 		byte* d_out,

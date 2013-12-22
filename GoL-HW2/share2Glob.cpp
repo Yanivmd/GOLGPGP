@@ -4,7 +4,7 @@
 
 
 // only one warp will work on this...make it work hard! , ty=CONST, tx=0..31 (%?)
-void share2glob(int * blockWithMargin,int NumberOfColsNoMar, int NumberOfRowsNoMar, int *BordersAryPlace,int tx, int ty)
+void share2glob(byte * blockWithMargin,int usedColsNoMar, int usedRowsNoMar, int otalCols,int otalRows,int *BordersAryPlace,int tx, int ty)
 {
 	int *row2Fill;
 	int writeIndex;
@@ -15,25 +15,25 @@ void share2glob(int * blockWithMargin,int NumberOfColsNoMar, int NumberOfRowsNoM
 	if (dev4 == 0)
 	{
 		// copy border UP
-		row2Fill = &(BordersAryPlace[NumberOfColsNoMar*0]);
+		row2Fill = &(BordersAryPlace[usedColsNoMar*0]);
 		writeIndex = dev8;
 		for (int row=1;row<=1;row++)
 		{
-			for (int col=1+dev8;col<=NumberOfColsNoMar;col+=8)
+			for (int col=1+dev8;col<=usedColsNoMar;col+=8)
 			{
-				row2Fill[writeIndex] = blockWithMargin[row * (NumberOfColsNoMar+2) + col];
+				row2Fill[writeIndex] = blockWithMargin[row * (NumberOfCols2Jump) + col];
 				writeIndex +=8;
 			}
 		}
 	} else if (dev4 == 1)	{
 		// copy border Down
-		row2Fill = &(BordersAryPlace[NumberOfColsNoMar*1]);
+		row2Fill = &(BordersAryPlace[usedColsNoMar*1]);
 		writeIndex = dev8;
-		for (int row=1+NumberOfRowsNoMar-1;row<=1+NumberOfRowsNoMar-1;row++)
+		for (int row=1+usedColsNoMar-1;row<=1+NumberOfRowsNoMar-1;row++)
 		{
-			for (int col=1+dev8;col<=NumberOfColsNoMar;col+=8)
+			for (int col=1+dev8;col<=usedColsNoMar;col+=8)
 			{	
-				row2Fill[writeIndex] = blockWithMargin[row * (NumberOfColsNoMar+2) + col];
+				row2Fill[writeIndex] = blockWithMargin[row * (NumberOfCols2Jump) + col];
 				writeIndex +=8;
 			}
 		}
@@ -46,7 +46,7 @@ void share2glob(int * blockWithMargin,int NumberOfColsNoMar, int NumberOfRowsNoM
 			for (int col=1;col<=1;col++)
 			{
 				// move past margin, then skip n rows...
-				row2Fill[writeIndex] = blockWithMargin[row * (NumberOfColsNoMar+2) + col];
+				row2Fill[writeIndex] = blockWithMargin[row * (NumberOfCols2Jump) + col];
 				writeIndex +=8;
 			}
 		}
@@ -59,7 +59,7 @@ void share2glob(int * blockWithMargin,int NumberOfColsNoMar, int NumberOfRowsNoM
 			for (int col=NumberOfColsNoMar;col<=NumberOfColsNoMar;col++)
 			{
 				// move past margin, then skip n rows...
-				row2Fill[writeIndex] = blockWithMargin[row * (NumberOfColsNoMar+2) + col];
+				row2Fill[writeIndex] = blockWithMargin[row * (NumberOfCols2Jump) + col];
 				writeIndex +=8;
 			}
 		}
@@ -74,12 +74,12 @@ void share2glob(int * blockWithMargin,int NumberOfColsNoMar, int NumberOfRowsNoM
 
 int test1()
 {
-	int packedValues__shared__[] = {0, 0, 0, 0, 0 , 0, 
-						        0 ,1 ,2 ,3 ,4 , 0, 
-						        0 ,5 ,6 ,7 ,8 , 0, 
-						        0 ,9 ,10,11,12, 0, 
-						        0 ,13,14,15,16, 0, 
-						        0 ,0 ,0 ,0 ,0  ,0};
+	byte packedValues__shared__[] = {0, 0, 0, 0, 0 , 0, 
+						             0 ,1 ,2 ,3 ,4 , 0, 
+						             0 ,5 ,6 ,7 ,8 , 0, 
+						             0 ,9 ,10,11,12, 0, 
+						             0 ,13,14,15,16, 0, 
+						             0 ,0 ,0 ,0 ,0  ,0};
 	const int NumColsNoMar= 4;
 	const int  NumRowsNoMar= 4;
 
@@ -93,7 +93,7 @@ int test1()
 
 
 	for (int tx=0;tx<32;tx++)
-		share2glob(packedValues__shared__,NumColsNoMar,NumRowsNoMar,&(borders__global__[NumberOfVirtBLock *4 * NumColsNoMar]),tx,0);
+		share2glob(packedValues__shared__,NumColsNoMar,NumRowsNoMar,NumColsNoMar+2,&(borders__global__[NumberOfVirtBLock *4 * NumColsNoMar]),tx,0);
 
 	int expectedRes[] = {1,2,3,4,13,14,15,16,1,5,9,13,4,8,12,16};
 
@@ -103,12 +103,12 @@ int test1()
 int test2()
 {
 
-	int packedValues__shared__[] = {0 ,0 ,0, 0 , 0,  
-						            0 ,1 ,2 ,3 , 0, 
-						            0 ,5 ,6 ,7 , 0, 
-						            0 ,9 ,10,11, 0, 
-						            0 ,13,14,15, 0, 
-						            0 ,0 ,0 ,0 , 0 };
+	byte packedValues__shared__[] = {0 ,0 ,0, 0 , 0, 99,99, 
+						            0 ,1 ,2 ,3 , 0, 99,99, 
+						            0 ,5 ,6 ,7 , 0, 99,99, 
+						            0 ,9 ,10,11, 0, 99,99, 
+						            0 ,13,14,15, 0, 99,99, 
+						            0 ,0 ,0 ,0 , 0, 99,99, };
 	const int NumRowsNoMar= 4;
 	const int NumColsNoMar= 3;
 	const int NUM_VIRT_BLOCKS =1;
@@ -120,7 +120,7 @@ int test2()
 	int numberOfVirtBbock = 0;
 
 	for (int tx=0;tx<32;tx++)
-		share2glob(packedValues__shared__,NumColsNoMar,NumRowsNoMar,&(borders__global__[(2 * NumColsNoMar * numberOfVirtBbock)+(2 * NumRowsNoMar * numberOfVirtBbock)]),tx,0);
+		share2glob(packedValues__shared__,NumColsNoMar,NumRowsNoMar,NumColsNoMar+2+2,&(borders__global__[(2 * NumColsNoMar * numberOfVirtBbock)+(2 * NumRowsNoMar * numberOfVirtBbock)]),tx,0);
 
 	return memcmp(expectedRes,borders__global__,sizeof(expectedRes));
 }
@@ -130,11 +130,11 @@ int test3()
 	const int NumRowsNoMar= 140;
 	const int NumColsNoMar= 70;
 
-	int packedValues__shared__BIG[(NumRowsNoMar+2)*(NumColsNoMar+2)];
+	byte packedValues__shared[(NumRowsNoMar+2)*(NumColsNoMar+2)];
 
 	for (int i=1;i<NumRowsNoMar+2;i++)
 		for (int j=1;j<NumColsNoMar+2;j++)
-			packedValues__shared__BIG[i*(NumColsNoMar+2)+j] =i*j; 
+			packedValues__shared[i*(NumColsNoMar+2)+j] =i*j; 
 
 
 	const int NUM_VIRT_BLOCKS =1;
