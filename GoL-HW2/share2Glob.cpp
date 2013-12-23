@@ -69,6 +69,10 @@ void share2glob(byte * blockWithMargin,byte *BordersAryPlace,int usedColsNoMar, 
 
 void share2glob(byte * blockWithMargin,byte *BordersAryPlace,int usedColsNoMar, int usedRowsNoMar, int totalCols,int totalRows,int tx, int ty)
 {
+
+	totalCols += MARGIN_SIZE_COLS;
+	totalRows += MARGIN_SIZE_ROWS;
+
 	byte *row2Fill;
 	int writeIndex;
 
@@ -114,7 +118,7 @@ void share2glob(byte * blockWithMargin,byte *BordersAryPlace,int usedColsNoMar, 
 		// copy border Right
 		row2Fill = getRIGHTBorder(BordersAryPlace,totalCols,totalRows);
 		writeIndex = dev8;
-		for (int row=1 + +dev8;row<=usedRowsNoMar;row+=32)
+		for (int row=1 +dev8;row<=usedRowsNoMar;row+=32)
 		{	
 			for (int col=usedColsNoMar;col<=usedColsNoMar;col++)
 			{
@@ -240,8 +244,8 @@ int test3()
 	return memcmp(expectedRes,borders__global__,sizeof(expectedRes));
 }
 
-//shareTester
-int host(int sizeX, int sizeY, byte* input, byte* output, int iterations, string outfilename)
+//
+int shareTester(int sizeX, int sizeY, byte* input, byte* output, int iterations, string outfilename)
 {
 	int err;
 	if (test1() != 0)

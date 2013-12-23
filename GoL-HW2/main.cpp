@@ -149,6 +149,8 @@ void clearMargin(byte* field, int sizeX, int sizeY)
     std::fill_n(&field[sizeX*(sizeY-1)],sizeX,DEAD);
 }
 
+
+
 void writeField(byte* field, int sizeX, int sizeY, int marginSize,
     std::ostream& outs)
 {

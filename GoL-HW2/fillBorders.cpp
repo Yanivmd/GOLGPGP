@@ -1,59 +1,58 @@
 	
 #include "inc.h"
 
-// TODO: make sure that totalVBCols includes the margin, so these calculations are ok.
-inline byte* getVBfromXY(byte *fullBordersArry,int VBx,int VBy,int totalVBCols,int totalCols,int totalRows)
-{
-	return &(fullBordersArry[((VBy*totalVBCols)+VBx)*  (   (totalCols-MARGIN_SIZE_COLS)  *2 +  (totalRows-MARGIN_SIZE_ROWS)*2  )  ]);
-}
-
 
 void fillBorders(byte * blockWithMargin,byte *fullBordersArry,int VBx,int VBy,int totalVBCols,
 	int usedColsNoMar, int usedRowsNoMar, int totalCols,int totalRows,int tx,int ty)
 {
+
+	// ajust to margin 
+	VBx +=1;
+	VBy +=1;
+
 	byte* borderPtr;
 	// LEFT UP
-		borderPtr = getDOWNBorder(getVBfromXY(fullBordersArry,VBx-1,VBy-1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
+		borderPtr = getDOWNBorder(getBordersVBfromXY(fullBordersArry,VBx-1,VBy-1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
 		blockWithMargin[0*totalCols+0] = borderPtr[totalCols-MARGIN_SIZE_COLS-1]; // -1 , cuz 0 based. (no margin!!!)
 
 	// UP
-		borderPtr = getDOWNBorder(getVBfromXY(fullBordersArry,VBx,VBy-1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
+		borderPtr = getDOWNBorder(getBordersVBfromXY(fullBordersArry,VBx,VBy-1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
 		for (int col=1+tx;col<totalCols-(MARGIN_SIZE_COLS-2)-1;col+=32)
 		{
 			blockWithMargin[0*totalCols+col] = borderPtr[col-1];
 		}
 
 	// RIGHT UP
-		borderPtr = getDOWNBorder(getVBfromXY(fullBordersArry,VBx+1,VBy-1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
+		borderPtr = getDOWNBorder(getBordersVBfromXY(fullBordersArry,VBx+1,VBy-1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
 		blockWithMargin[0*totalCols + totalCols-(MARGIN_SIZE_COLS-2)-1] = borderPtr[0]; 
 
 	// LEFT
-		borderPtr = getRIGHTBorder(getVBfromXY(fullBordersArry,VBx-1,VBy,totalVBCols,totalCols,totalRows),totalCols,totalRows);
+		borderPtr = getRIGHTBorder(getBordersVBfromXY(fullBordersArry,VBx-1,VBy,totalVBCols,totalCols,totalRows),totalCols,totalRows);
 		for (int row=1+tx;row<totalRows-(MARGIN_SIZE_ROWS-2)-1 ;row+=32)
 		{
 			blockWithMargin[row*totalCols + 0] = borderPtr[row-1];
 		}
 
 	// RIGHT
-		borderPtr = getLEFTBorder(getVBfromXY(fullBordersArry,VBx+1,VBy,totalVBCols,totalCols,totalRows),totalCols,totalRows);
+		borderPtr = getLEFTBorder(getBordersVBfromXY(fullBordersArry,VBx+1,VBy,totalVBCols,totalCols,totalRows),totalCols,totalRows);
 		for (int row=1+tx;row<totalRows-(MARGIN_SIZE_ROWS-2) -1 ;row+=32)
 		{
 			blockWithMargin[row*totalCols + (totalCols-(MARGIN_SIZE_COLS-2)-1)] = borderPtr[row-1];
 		}
 
 	// DOWN LEFT
-		borderPtr = getUPBorder(getVBfromXY(fullBordersArry,VBx-1,VBy+1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
+		borderPtr = getUPBorder(getBordersVBfromXY(fullBordersArry,VBx-1,VBy+1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
 		blockWithMargin[(totalRows -1) * totalCols + 0] = borderPtr[totalRows-MARGIN_SIZE_ROWS-1]; // -1 cuz 0 based  . (no margin!!!)
 
 	// DOWN
-		borderPtr = getUPBorder(getVBfromXY(fullBordersArry,VBx,VBy+1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
+		borderPtr = getUPBorder(getBordersVBfromXY(fullBordersArry,VBx,VBy+1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
 		for (int col=1+tx;col<=totalCols-MARGIN_SIZE_COLS;col+=32)
 		{
 			blockWithMargin[(totalRows-1)*totalCols+col] = borderPtr[col-1];
 		}
 
 	// DOWN RIGHT
-		borderPtr = getUPBorder(getVBfromXY(fullBordersArry,VBx+1,VBy+1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
+		borderPtr = getUPBorder(getBordersVBfromXY(fullBordersArry,VBx+1,VBy+1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
 		blockWithMargin[(totalRows-1) * totalCols + totalCols-(MARGIN_SIZE_COLS-2)-1] = borderPtr[0]; 
 }
 
@@ -75,14 +74,14 @@ int fillTest1()
 
 	byte fullBordersArry[9*(usedColsnoMar*2+usedRowsnoMar*2)];
 
-	int totalVBCols = 1+VB_MARGIN_SIZE_COLS;
+	int totalVBCols = 1+VB_MARGIN_SIZE;
 
 	int runningNumber = 1;
 	for (int vby=0;vby<=2;vby++)
 	{
 		for (int vbx=0;vbx<=2;vbx++)
 		{
-			byte *ptr = getVBfromXY(fullBordersArry,vbx,vby,totalVBCols,totalCols,totalRows);
+			byte *ptr = getBordersVBfromXY(fullBordersArry,vbx,vby,totalVBCols,totalCols,totalRows);
 			for (int k=0;k<(usedColsnoMar*2+usedRowsnoMar*2);k++)
 			{
 				ptr[k] = runningNumber;
