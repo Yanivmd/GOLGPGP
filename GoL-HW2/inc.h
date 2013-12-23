@@ -18,6 +18,7 @@
 #define NUM_THREADS_X 32
 #define NUM_THREADS_Y 30
 
+#define MARGIN_SIZE_COLS 2
 
 using namespace std;
 
@@ -39,8 +40,6 @@ using namespace std;
 #define NUM_BLOCKS_Y 1
 #define NUM_THREADS_X 32
 #define NUM_THREADS_Y 30
-
-#define MARGIN_SIZE 3
 
 #define MARGIN_SIZE_COLS 3
 #define MARGIN_SIZE_ROWS 2

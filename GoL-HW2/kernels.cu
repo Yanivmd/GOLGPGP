@@ -1,4 +1,4 @@
-
+#define CUDA
 #include "inc.h"
 
 
@@ -58,85 +58,83 @@ __global__ void unpacker(byte *d_out, int *d_packedOut, int sizeX, int sizeY)
 	}
 }
 */
+// TODO Check byte vs int, Check gather vs scatter
 
 // byte packing
-/*__global__*/ void packer(byte *d_in, byte *d_packedIn, int sizeX, int sizeY, int bx, int by, int tx, int ty)
+/*__global__*/ void packer(byte* in, byte* out, int numUsedCols, int numUsedRows, int numTotalCols, int numTotalRows, int tx, int ty)
 {
-	//int row = blockIdx.y*blockDim.y+threadIdx.y;
-	//int col = blockIdx.x*blockDim.x+threadIdx.x;
-	int row = by*((sizeY+NUM_THREADS_Y-1)/NUM_THREADS_Y)+ty;
-	int col = bx*((sizeX+NUM_THREADS_X-1)/NUM_THREADS_X)+tx;
-	int outIndex = (row*sizeX+col);
-	if (outIndex < (sizeX*sizeY)) {
-		byte n1 = 0;
-		for (int i=0; i<8; i++) {
-			int inIndexMargin = (row+1)*(sizeX+2) + col + 1;
-			n1 += ((d_in[inIndexMargin]) << (outIndex%8));
+	int col = tx*8;
+	int roundedTotalCols = ((numTotalCols+7-MARGIN_SIZE)/8)*8;
+	int outIndex = ty*roundedTotalCols+col;
+	int inIndexMargin = (ty+1)*(numTotalCols) + col + 1;
+	byte n1 = 0;
+	if (ty < numUsedRows) {
+		for (int i=0; i<8 && (col < numUsedCols); i++) {
+			n1 |= in[inIndexMargin] << (col%8);
 			col++;
-			if (col>=sizeX) {
-				row++;
-				col -= sizeX;
-			}
+			inIndexMargin++;
 		}
-		d_packedIn[outIndex/8] = n1;
 	}
+	out[outIndex/8] = n1;
 }
-/*__global__*/ void unpacker(byte *d_out, byte *d_packedOut, int sizeX, int sizeY, int bx, int by, int tx, int ty)
+/*__global__*/ void unpacker(byte* in, byte* out, int numUsedCols, int numUsedRows, int numTotalCols, int numTotalRows, int tx, int ty)
 {
-	//int row = blockIdx.y*blockDim.y+threadIdx.y;
-	//int col = blockIdx.x*blockDim.x+threadIdx.x;
-	int row = by*((sizeY+NUM_THREADS_Y-1)/NUM_THREADS_Y)+ty;
-	int col = bx*((sizeX+NUM_THREADS_X-1)/NUM_THREADS_X)+tx;
-	int outIndexMargin = (row+1)*(sizeX+2) + col + 1;
-	int inIndex = (row*sizeX+col);
-	if (inIndex < (sizeX*sizeY)) {
-		byte n1 = (d_packedOut[inIndex/8] >> (inIndex%8)) & 0x1;
-		d_out[outIndexMargin]=n1;
+	int roundedTotalCols = (numTotalCols+7-MARGIN_SIZE_COLS)/8*8;
+	int inIndex = ty*roundedTotalCols+tx;
+	int outIndexMargin = (ty+1)*(numTotalCols) + tx + 1;
+	if ((tx < numUsedCols) && (ty < numUsedRows)) {
+		byte n1 = (in[inIndex/8] >> (tx%8)) & 0x1;
+		out[outIndexMargin] = n1;
 	}
-}
+} 
 
 
 int host(int sizeX, int sizeY, byte* input, byte* output, int iterations, string outfilename)
 {
 	byte *d_in=NULL, *d_out=NULL;
-	int *d_packedIn=NULL, *d_packedOut=NULL;
+	byte *d_packedIn=NULL, *d_packedOut=NULL;
 	int *d_generations=NULL;
 
 	int field_size = (sizeX+2)*(sizeY+2);
+	int packedSize = ((sizeX+7)/8)*sizeY;
 
 	int numBlocks = ((sizeX+NUM_THREADS_X-1)/NUM_THREADS_X) * ((sizeY+NUM_THREADS_Y-1)/NUM_THREADS_Y);
 
 	checkCudaErrors(cudaMalloc((void**)&d_in,field_size*sizeof(byte)));
 	checkCudaErrors(cudaMalloc((void**)&d_out,field_size*sizeof(byte)));
-	checkCudaErrors(cudaMalloc((void**)&d_packedIn,(field_size/8)));
-	checkCudaErrors(cudaMalloc((void**)&d_packedOut,(field_size/8)));
+	checkCudaErrors(cudaMalloc((void**)&d_packedIn,packedSize));
+	checkCudaErrors(cudaMalloc((void**)&d_packedOut,packedSize));
 	checkCudaErrors(cudaMalloc((void**)&d_generations,numBlocks*sizeof(int)));
 
 	cudaMemset(d_out, 0, field_size); //TODO delete
-	cudaMemset(d_packedIn, 0, (field_size/8)); 
+	cudaMemset(d_packedIn, 0, packedSize); 
 	cudaMemset(d_generations, 0, numBlocks*sizeof(int));
 
 	checkCudaErrors(cudaMemcpy(d_in, input, field_size, cudaMemcpyHostToDevice));
 
 	cudaError_t err;
-
-	byte* packed = new byte[sizeX*sizeY];
-	for (int i=0; i<(sizeX+NUM_THREADS_X-1)/NUM_THREADS_X; i++)
-		for (int j=0; j<(sizeY+NUM_THREADS_Y-1)/NUM_THREADS_Y; j++)
-			for (int l=0; l<NUM_THREADS_X; l++)
-				for (int k=0; k<NUM_THREADS_Y; k++)
-					packer(input,packed,sizeX,sizeY,i,j,l,k);
-
-	for (int i=0; i<(sizeX+NUM_THREADS_X-1)/NUM_THREADS_X; i++)
-		for (int j=0; j<(sizeY+NUM_THREADS_Y-1)/NUM_THREADS_Y; j++)
-			for (int l=0; l<NUM_THREADS_X; l++)
-				for (int k=0; k<NUM_THREADS_Y; k++)
-					unpacker(output,packed,sizeX,sizeY,i,j,l,k);
+	
+	byte* packed = new byte[packedSize];
+	memset(packed,0,packedSize);
+	memset(output,0,field_size);
+	for (int k=0; k<sizeY; k++)
+		for (int l=0; l<(sizeX+7)/8; l++)
+			packer(input,packed,sizeX,sizeY,sizeX+2,sizeY+2,l,k);
+	for (int k=0; k<sizeY; k++)
+		for (int l=0; l<sizeX; l++)
+			unpacker(packed,output,sizeX,sizeY,sizeX+2,sizeY+2,l,k);
 	int res  = memcmp(input,output,field_size);
+	if (res!=0) {
+		for (int i=0; i<sizeY; i++)
+			for (int j=0; j<sizeX; j++)
+				if (input[(i+1)*(sizeX+2)+j+1] != output[(i+1)*(sizeX+2)+j+1])
+					bool shit = true;
+	}
 	free(packed);
+	
 	/*
 	dim3 packerThreads(NUM_THREADS_X,NUM_THREADS_Y);
-	dim3 packerGrid((sizeX+NUM_THREADS_X-1)/NUM_THREADS_X,(sizeY+NUM_THREADS_Y-1)/NUM_THREADS_Y);
+	dim3 packerGrid((((sizeX+NUM_THREADS_X-1)/NUM_THREADS_X)+7)/8,(sizeY+NUM_THREADS_Y-1)/NUM_THREADS_Y);
 
 	packer<<<packerGrid,packerThreads>>>(d_in, d_packedIn, sizeX, sizeY);
 
@@ -167,7 +165,10 @@ int host(int sizeX, int sizeY, byte* input, byte* output, int iterations, string
     checkCudaErrors(cudaEventSynchronize(stop));
 
 	//TODO   d_packedOut
-	unpacker<<<packerGrid,packerThreads>>>(d_out, d_packedIn, sizeX, sizeY);
+	dim3 unpackerThreads(NUM_THREADS_X,NUM_THREADS_Y);
+	dim3 unpackerGrid((sizeX+NUM_THREADS_X-1)/NUM_THREADS_X,(sizeY+NUM_THREADS_Y-1)/NUM_THREADS_Y);
+
+	unpacker<<<unpackerGrid,unpackerThreads>>>(d_out, d_packedIn, sizeX, sizeY);
 
     // check for errors during kernel launch
    
@@ -191,9 +192,9 @@ int host(int sizeX, int sizeY, byte* input, byte* output, int iterations, string
 	}
 
 
-//	int res  = memcmp(input,output,field_size);
+	int res  = memcmp(input,output,field_size);
 
-//	printf("%dx%d field size, %d generation, %f ms\n",sizeX,sizeY,iterations,msec);
+	printf("%dx%d field size, %d generation, %f ms\n",sizeX,sizeY,iterations,msec);
 
     cudaFree(d_in);
     cudaFree(d_out);
