@@ -1,5 +1,5 @@
 
-
+/*
 #include "inc.h"
 
 #include "windows.h"
@@ -54,3 +54,4 @@ int tester(int sizeX, int sizeY, byte* input, byte* output, int iterations, stri
 
 
 
+*/

@@ -42,6 +42,13 @@ using namespace std;
 
 #define MARGIN_SIZE 3
 
+#define MARGIN_SIZE_COLS 3
+#define MARGIN_SIZE_ROWS 2
+
+
+#define VB_MARGIN_SIZE_COLS 2
+#define VB_MARGIN_SIZE_ROWS 2
+
 void kernel(
 		byte* d_in,
 		byte* d_out,
@@ -52,6 +59,27 @@ void kernel(
 		);
 
 int host(int sizeX, int sizeY, byte* input, byte* output, int iterations, string outfilename);
+
+inline byte * getUPBorder(byte * BordersAryPlace,int totalCols,int totalRows)
+{
+	return &(BordersAryPlace[(totalCols-MARGIN_SIZE_COLS)*0]);
+}
+
+inline byte * getDOWNBorder(byte * BordersAryPlace,int totalCols,int totalRows)
+{
+	return &(BordersAryPlace[(totalCols-MARGIN_SIZE_COLS)*1]);
+}
+
+inline byte * getLEFTBorder(byte * BordersAryPlace,int totalCols,int totalRows)
+{
+	return &(BordersAryPlace[(totalCols-MARGIN_SIZE_COLS)*2]);
+}
+
+inline byte * getRIGHTBorder(byte * BordersAryPlace,int totalCols,int totalRows)
+{
+	return &(BordersAryPlace[(totalCols-MARGIN_SIZE_COLS)*2 + (totalRows-MARGIN_SIZE_ROWS)*1]);
+}
+
 
 #endif
 
