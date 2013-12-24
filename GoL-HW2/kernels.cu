@@ -366,11 +366,11 @@ __forceinline__ __device__  void unpacker(byte* in, byte* out, int numUsedCols, 
 	const int tx = threadIdx.x;
 	const int ty = threadIdx.y;
 
-	int roundedTotalCols = ((numTotalCols+7)/8)*8;
-	int inIndex = ty*roundedTotalCols+tx;
+	int roundedTotalCols = ((numTotalCols+7)/8);
+	int inIndex = ty*roundedTotalCols+tx/8;
 	int outIndexMargin = (ty+1)*(numTotalCols+MARGIN_SIZE_COLS) + tx + 1;
 	if ((tx < numUsedCols) && (ty < numUsedRows)) {
-		byte n1 = (in[inIndex/8] >> (tx%8)) & 0x1;
+		byte n1 = (in[inIndex] >> (tx%8)) & 0x1;
 		out[outIndexMargin] = n1;
 	}
 } 
