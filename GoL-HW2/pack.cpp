@@ -5,19 +5,20 @@
 // byte packing
 /*__global__*/ void packer(byte* in, byte* out, int numUsedCols, int numUsedRows, int numTotalCols, int numTotalRows, int tx, int ty)
 {
-	int col = tx*8;
-	int roundedTotalCols = ((numTotalCols+7)/8)*8;
-	int outIndex = ty*roundedTotalCols+col;
-	int inIndexMargin = (ty+1)*(numTotalCols+MARGIN_SIZE_COLS) + col + 1;
-	byte n1 = 0;
-	if (ty < numUsedRows) {
+	int roundedTotalCols = (numTotalCols+7)/8;
+	int col = tx%roundedTotalCols;
+	int row = ty*8 + (tx/roundedTotalCols);
+	int outIndex = row*roundedTotalCols+col;
+	int inIndexMargin = (row+1)*(numTotalCols+MARGIN_SIZE_COLS) + col*8 + 1;
+	if ((row < numUsedRows) && (col < numUsedCols)) {
+		byte n1 = 0;
 		for (int i=0; i<8 && (col < numUsedCols); i++) {
 			n1 |= in[inIndexMargin] << (col%8);
 			col++;
 			inIndexMargin++;
 		}
+		out[outIndex] = n1;
 	}
-	out[outIndex/8] = n1;
 }
 /*__global__*/ void unpacker(byte* in, byte* out, int numUsedCols, int numUsedRows, int numTotalCols, int numTotalRows, int tx, int ty)
 {

@@ -134,9 +134,9 @@ void kernel(byte* input, byte* output,const int numberOfRows,const int numberOfC
 						
 
 						if (threadIdxy < usedRows) {
-							if ((absRow < numberOfRows) && (absCol < numberOfCols)) {
+							//if ((absRow < numberOfRows) && (absCol < numberOfCols)) {
 								packer(nextWork,&packed__shared__[packedIndex*sizeOfPackedVB],usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,threadIdxx,threadIdxy);
-							}
+							//}
 
 							share2glob(nextWork,getBordersVBfromXY(bordersArray,virtualGlobalBlockX,virtualGlobalBlockY,numberOfVirtualBlockX,NUM_THREADS_X,NUM_THREADS_Y),
 								usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,threadIdxx,threadIdxy);
