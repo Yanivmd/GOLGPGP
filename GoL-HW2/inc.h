@@ -6,7 +6,7 @@
 
 // CUDA runtime
 
-//#define CUDA
+#define CUDA
 
 #ifdef CUDA
 #include <cuda.h>

@@ -354,7 +354,7 @@ __forceinline__ __device__  void packer(byte* in, byte* out, int numUsedCols, in
 	if ((row < numUsedRows) && (col < numUsedCols)) {
 		byte n1 = 0;
 		for (int i=0; i<8 && (col < numUsedCols); i++) {
-			n1 |= in[inIndexMargin] << (col%8);
+			n1 |= in[inIndexMargin] << (i%8);
 			col++;
 			inIndexMargin++;
 		}
@@ -599,9 +599,9 @@ __global__ void kernel(byte* input, byte* output,const int numberOfRows,const in
 				int absCol = (virtualGlobalBlockX * NUM_THREADS_X) + threadIdx.x;
 
 				if (threadIdx.y < usedRows) {
-					if ((absRow < numberOfRows) && (absCol < numberOfCols)) {
+					//if ((absRow < numberOfRows) && (absCol < numberOfCols)) {
 						packer(nextWork,&packed__shared__[packedIndex*sizeOfPackedVB],usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y);
-					}
+					//}
 
 					share2glob(nextWork,getBordersVBfromXY(bordersArray,virtualGlobalBlockX,virtualGlobalBlockY,numberOfVirtualBlockX,NUM_THREADS_X,NUM_THREADS_Y),
 						usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y);
