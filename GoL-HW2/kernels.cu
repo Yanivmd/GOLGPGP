@@ -346,26 +346,27 @@ __forceinline__ __device__  void packer(byte* in, byte* out, int numUsedCols, in
 	const int tx = threadIdx.x;
 	const int ty = threadIdx.y;
 
-	int col = tx*8;
-	int roundedTotalCols = ((numTotalCols+7)/8)*8;
-	int outIndex = ty*roundedTotalCols+col;
-	int inIndexMargin = (ty+1)*(numTotalCols+MARGIN_SIZE_COLS) + col + 1;
-	byte n1 = 0;
-	if (ty < numUsedRows) {
+	int roundedTotalCols = (numTotalCols+7)/8;
+	int col = tx%roundedTotalCols;
+	int row = ty*8 + (tx/roundedTotalCols);
+	int outIndex = row*roundedTotalCols+col;
+	int inIndexMargin = (row+1)*(numTotalCols+MARGIN_SIZE_COLS) + col*8 + 1;
+	if ((row < numUsedRows) && (col < numUsedCols)) {
+		byte n1 = 0;
 		for (int i=0; i<8 && (col < numUsedCols); i++) {
 			n1 |= in[inIndexMargin] << (col%8);
 			col++;
 			inIndexMargin++;
 		}
+		out[outIndex] = n1;
 	}
-	out[outIndex/8] = n1;
 }
 __forceinline__ __device__  void unpacker(byte* in, byte* out, int numUsedCols, int numUsedRows, int numTotalCols, int numTotalRows)
 {
 	const int tx = threadIdx.x;
 	const int ty = threadIdx.y;
 
-	int roundedTotalCols = (numTotalCols+7)/8*8;
+	int roundedTotalCols = ((numTotalCols+7)/8)*8;
 	int inIndex = ty*roundedTotalCols+tx;
 	int outIndexMargin = (ty+1)*(numTotalCols+MARGIN_SIZE_COLS) + tx + 1;
 	if ((tx < numUsedCols) && (ty < numUsedRows)) {
@@ -400,8 +401,8 @@ __forceinline__ __device__ void  eval(byte * srcBlockWithMargin,byte * tarBlockW
 
 	// i assume the check done to see if we can cals 
 	int numberOfColsWithMar = totalCols + MARGIN_SIZE_COLS;
-	byte *ptr = &(srcBlockWithMargin[((tx+1) * numberOfColsWithMar) + (ty+1)]);
-	byte *out = &(tarBlockWithMargin[((tx+1) * numberOfColsWithMar) + (ty+1)]);
+	byte *ptr = &(srcBlockWithMargin[((ty+1) * numberOfColsWithMar) + (tx+1)]);
+	byte *out = &(tarBlockWithMargin[((ty+1) * numberOfColsWithMar) + (tx+1)]);
 	//TODO check neighbors vector
 	int neighbors = 0;
 
@@ -510,10 +511,10 @@ __global__ void kernel(byte* input, byte* output,const int numberOfRows,const in
 						
 
 						if (threadIdx.y < usedRows) {
-							if ((absRow < numberOfRows) && (absCol < numberOfCols)) {
+							//if ((absRow < numberOfRows) && (absCol < numberOfCols)) {
 								packer(nextWork,&packed__shared__[packedIndex*sizeOfPackedVB],usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y);
-							}
-
+							//}
+							
 							share2glob(nextWork,getBordersVBfromXY(bordersArray,virtualGlobalBlockX,virtualGlobalBlockY,numberOfVirtualBlockX,NUM_THREADS_X,NUM_THREADS_Y),
 								usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y);
 						}
@@ -527,7 +528,6 @@ __global__ void kernel(byte* input, byte* output,const int numberOfRows,const in
 				// TODO - this is not really needed..
 				__syncthreads();
 
-
 				virtualGlobalBlockX += gridDimx;
 				packedIndex +=1;
 
@@ -540,7 +540,6 @@ __global__ void kernel(byte* input, byte* output,const int numberOfRows,const in
 			virtualGlobalBlockX = virtualGlobalBlockX % numberOfVirtualBlockX;
 		}
 	}
-	//
 
 	// this was once for k= iterations...
 	for (int k=0; k<iterations; k++) 
