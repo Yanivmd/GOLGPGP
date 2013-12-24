@@ -6,7 +6,7 @@
 
 // CUDA runtime
 
-#define CUDA
+//#define CUDA
 
 #ifdef CUDA
 #include <cuda.h>
@@ -123,7 +123,7 @@ void kernel(
 		int* blockGenerations
 		);
 
-int host(int sizeX, int sizeY, byte* input, byte* output, int iterations, string outfilename);
+int host(int sizeX, int sizeY, byte* input, byte* output, int iterations);
 
 inline byte * getUPBorder(byte * BordersAryPlace,int totalCols,int totalRows)
 {

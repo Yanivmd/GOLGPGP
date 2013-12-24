@@ -325,7 +325,7 @@ void fillMargin(int* field, int sizeX, int sizeY,int val)
     std::fill_n(&field[sizeX*(sizeY-1)],sizeX,val);
 }
 
-void do_host(int numberOfCols, int numberOfRows, byte* input, byte* output, int iterations)
+int host(int numberOfCols, int numberOfRows, byte* input, byte* output, int iterations)
 {
 	
 	const int numberOfVirtualBlockY = (numberOfRows+NUM_THREADS_Y-1)/NUM_THREADS_Y;
@@ -345,6 +345,7 @@ void do_host(int numberOfCols, int numberOfRows, byte* input, byte* output, int 
 	delete[] bordersArray;
 	delete[] blockGenerations;
 
+	return 0;
 }
 
 
@@ -368,7 +369,7 @@ int hostTest1()
 	byte output[sizeof(input)/sizeof(byte)];
 	memset(output,0,sizeof(input)/sizeof(byte));
 
-	do_host(3,3,input,output,1);
+	host(3,3,input,output,1);
 	int res= memcmp(output,expected,sizeof(expected)/sizeof(byte));
 	return res;
 }
@@ -393,7 +394,7 @@ int hostTest2()
 	byte output[sizeof(input)/sizeof(byte)];
 	memset(output,0,sizeof(input)/sizeof(byte));
 
-	do_host(3,3,input,output,1);
+	host(3,3,input,output,1);
 	int res= memcmp(output,expected,sizeof(expected)/sizeof(byte));
 	return res;
 }
@@ -418,13 +419,13 @@ int hostTest3()
 	byte output[sizeof(input)/sizeof(byte)];
 	memset(output,0,sizeof(input)/sizeof(byte));
 
-	do_host(4,3,input,output,1);
+	host(4,3,input,output,1);
 	int res= memcmp(output,expected,sizeof(expected)/sizeof(byte));
 	return res;
 }
 
 
-int host(int numberOfCols, int numberOfRows, byte* input, byte* output, int iterations, string outfilename)
+int testHost(int numberOfCols, int numberOfRows, byte* input, byte* output, int iterations, string outfilename)
 {
 
 	int res;

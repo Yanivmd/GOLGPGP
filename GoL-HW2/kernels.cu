@@ -1,6 +1,7 @@
 
 #include "inc.h"
 
+#ifdef CUDA
 
 // This will output the proper CUDA error strings in the event that a CUDA host call returns an error
 #define checkCudaErrors(err)  __checkCudaErrors (err, __FILE__, __LINE__)
@@ -691,3 +692,5 @@ __global__ void kernel(byte* input, byte* output,const int numberOfRows,const in
 	}
 	//
 }
+
+#endif
