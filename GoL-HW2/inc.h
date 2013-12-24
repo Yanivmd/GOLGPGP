@@ -1,6 +1,12 @@
+#ifndef __INC__
+
+#define __INC__
+
 #include "FieldReader.h"
 
 // CUDA runtime
+
+#define CUDA
 
 #ifdef CUDA
 #include <cuda.h>
@@ -11,14 +17,6 @@
 // Helper functions and utilities to work with CUDA
 //#include <helper_functions.h>
 
-
-
-#define NUM_BLOCKS_X 2
-#define NUM_BLOCKS_Y 1
-#define NUM_THREADS_X 32
-#define NUM_THREADS_Y 30
-
-#define MARGIN_SIZE_COLS 2
 
 using namespace std;
 
@@ -31,7 +29,67 @@ __global__ void kernel(
 		int* blockGenerations
 		);
 
-int host(int sizeX, int sizeY, byte* input, byte* output, int iterations, string outfilename);
+int host(int sizeX, int sizeY, byte* input, byte* output, int iterations);
+
+
+#define NUM_BLOCKS_X 1
+#define NUM_BLOCKS_Y 1
+#define NUM_THREADS_X 32
+#define NUM_THREADS_Y 30
+
+#define MARGIN_SIZE_COLS 3
+#define MARGIN_SIZE_ROWS 2
+
+#define GLOBAL_MARGIN_SIZE 2
+
+#define MAX_NUMBER_COLS 200
+#define MAX_NUMBER_ROWS 200
+
+
+#define VB_MARGIN_SIZE 2
+
+#define GEN_MARGIN_SIZE 2
+
+__global__ void kernel(byte* input, byte* output,const int numberOfRows,const int numberOfCols,
+	int numberOfVirtualBlockX, int numberOfVirtualBlockY,
+	int iterations,byte *bordersArray,int * blockGenerations);
+
+__forceinline__ __device__ byte * getUPBorder(byte * BordersAryPlace,int totalCols,int totalRows)
+{
+	return &(BordersAryPlace[(totalCols-MARGIN_SIZE_COLS)*0]);
+}
+
+__forceinline__ __device__ byte * getDOWNBorder(byte * BordersAryPlace,int totalCols,int totalRows)
+{
+	return &(BordersAryPlace[(totalCols-MARGIN_SIZE_COLS)*1]);
+}
+
+__forceinline__ __device__ byte * getLEFTBorder(byte * BordersAryPlace,int totalCols,int totalRows)
+{
+	return &(BordersAryPlace[(totalCols-MARGIN_SIZE_COLS)*2]);
+}
+
+__forceinline__ __device__ byte * getRIGHTBorder(byte * BordersAryPlace,int totalCols,int totalRows)
+{
+	return &(BordersAryPlace[(totalCols-MARGIN_SIZE_COLS)*2 + (totalRows-MARGIN_SIZE_ROWS)*1]);
+}
+
+
+__forceinline__ __device__ void  fillBorders(byte * blockWithMargin,byte *fullBordersArry,int VBx,int VBy,int totalVBCols,
+	int usedColsNoMar, int usedRowsNoMar, int totalCols,int totalRows);
+
+__forceinline__ __device__ void packer(byte* in, byte* out, int numUsedCols, int numUsedRows, int numTotalCols, int numTotalRows);
+__forceinline__ __device__ void unpacker(byte* in, byte* out, int numUsedCols, int numUsedRows, int numTotalCols, int numTotalRows);
+
+__forceinline__ __device__ void eval(byte * srcBlockWithMargin,byte * tarBlockWithMargin,int NumberOfColsNoMar, int NumberOfRowsNoMar);
+
+__forceinline__ __device__ byte* getBordersVBfromXY(byte *fullBordersArry,int VBx,int VBy,int totalVBCols,int totalCols,int totalRows)
+{
+	return &(fullBordersArry[((VBy*totalVBCols)+VBx)*  (   (totalCols-MARGIN_SIZE_COLS)  *2 +  (totalRows-MARGIN_SIZE_ROWS)*2  )  ]);
+}
+
+__forceinline__ __device__ void share2glob(byte * blockWithMargin,byte *BordersAryPlace,int usedColsNoMar, int usedRowsNoMar, int totalCols,int totalRows);
+
 #else
 
 #include "windows.h"
@@ -106,3 +164,4 @@ void share2glob(byte * blockWithMargin,byte *BordersAryPlace,int usedColsNoMar, 
 
 #endif
 
+#endif

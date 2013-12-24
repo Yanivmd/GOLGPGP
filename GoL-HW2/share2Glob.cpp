@@ -1,7 +1,7 @@
 
 #include "inc.h"
 
-
+#ifndef CUDA
 /*
 // only one warp will work on this...make it work hard! , ty=CONST, tx=0..31 (%?)
 void share2glob(byte * blockWithMargin,byte *BordersAryPlace,int usedColsNoMar, int usedRowsNoMar, int totalCols,int totalRows,int tx, int ty)
@@ -265,3 +265,4 @@ int shareTester(int sizeX, int sizeY, byte* input, byte* output, int iterations,
 
 
 
+#endif

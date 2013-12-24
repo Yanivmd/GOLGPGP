@@ -1,5 +1,7 @@
 #include "inc.h"
 
+#ifndef CUDA
+
 // byte packing
 /*__global__*/ void packer(byte* in, byte* out, int numUsedCols, int numUsedRows, int numTotalCols, int numTotalRows, int tx, int ty)
 {
@@ -27,3 +29,5 @@
 		out[outIndexMargin] = n1;
 	}
 } 
+
+#endif

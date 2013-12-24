@@ -2,6 +2,8 @@
 #include "inc.h"
 
 
+#ifndef CUDA
+
 void fillBorders(byte * blockWithMargin,byte *fullBordersArry,int VBx,int VBy,int totalVBCols,
 	int usedColsNoMar, int usedRowsNoMar, int totalCols,int totalRows,int tx,int ty)
 {
@@ -127,5 +129,6 @@ int fillTester(int sizeX, int sizeY, byte* input, byte* output, int iterations, 
 	return 0;
 }
 
+#endif
 
 

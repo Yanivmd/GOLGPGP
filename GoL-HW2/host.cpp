@@ -1,7 +1,7 @@
 
 #include "inc.h"
 
-
+#ifndef CUDA
 
 //const int gridDimx = NUM_BLOCKS_X;
 const int gridDimy = NUM_BLOCKS_Y;
@@ -448,3 +448,4 @@ int host(int numberOfCols, int numberOfRows, byte* input, byte* output, int iter
 	
 	return res;
 }
+#endif

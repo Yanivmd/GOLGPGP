@@ -59,6 +59,33 @@ int cpuSim(int iterations, byte* ptr1, byte* ptr2, int fieldSizeX, int fieldSize
 	return 0;
 }
 
+
+
+int main2()
+{
+		byte input[] = {0,0,0,0,0,
+					0,1,0,1,0,
+					0,0,1,0,0,
+					0,1,0,1,0,
+					0,0,0,0,0,
+	};
+
+	byte expected[] = {0,0,0,0,0,
+					   0,0,1,0,0,
+					   0,1,0,1,0,
+					   0,0,1,0,0,
+					   0,0,0,0,0,
+	};
+
+	byte output[sizeof(input)/sizeof(byte)];
+	memset(output,0,sizeof(input)/sizeof(byte));
+
+
+	host(3,3,input,output,3);
+	int res= memcmp(output,expected,sizeof(expected)/sizeof(byte));
+	return res;
+}
+
 int main(int argc, char** argv)
 {
     //const int NUM_ARGS = 3;
@@ -81,8 +108,8 @@ int main(int argc, char** argv)
   
     PatternBlock tblock;
     FieldReader reader;
-    int fieldSizeX = 140;       //<- FIELD_SIZE_X
-    int fieldSizeY = 70;        //<- FIELD_SIZE_Y
+    int fieldSizeX = 32;       //<- FIELD_SIZE_X
+    int fieldSizeY = 30;        //<- FIELD_SIZE_Y
 
     byte *cpuin = new byte[(fieldSizeY+2)*(fieldSizeX+2)];
     byte *gpuin = new byte[(fieldSizeY+2)*(fieldSizeX+2)];
@@ -96,7 +123,7 @@ int main(int argc, char** argv)
     
 	memcpy(gpuin,cpuin,(fieldSizeY+2)*(fieldSizeX+2));
 	writeBufToFile(outfilename,"gpuin",gpuin,fieldSizeX,fieldSizeY);
-	host(fieldSizeX,fieldSizeY,gpuin,gpuout,iterations,outfilename);
+	host(fieldSizeX,fieldSizeY,gpuin,gpuout,iterations);
 	
 	writeBufToFile(outfilename,"cpuin",cpuin,fieldSizeX,fieldSizeY);
     cpuSim(iterations,cpuin,cpuout,fieldSizeX,fieldSizeY);
