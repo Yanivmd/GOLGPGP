@@ -42,6 +42,7 @@ int host(int numberOfCols, int numberOfRows, byte* input, byte* output, int iter
 	byte *d_in=NULL, *d_out=NULL;
 	int *d_blockGenerations=NULL;
 	byte *d_bordersArray = NULL;
+	byte *d_bordersArray2 = NULL;
 
 	
 
@@ -59,12 +60,15 @@ int host(int numberOfCols, int numberOfRows, byte* input, byte* output, int iter
 	int sizeOfBordersAry = (numberOfVirtualBlockY+GEN_MARGIN_SIZE)*(numberOfVirtualBlockX+GEN_MARGIN_SIZE)*(NUM_THREADS_X*2+NUM_THREADS_Y*2);
 
 	checkCudaErrors(cudaMalloc((void**)&d_bordersArray,sizeOfBordersAry*sizeof(byte)));
+	checkCudaErrors(cudaMalloc((void**)&d_bordersArray2,sizeOfBordersAry*sizeof(byte)));
 	bordersArray = new byte[sizeOfBordersAry];
 	std::fill_n(bordersArray,sizeOfBordersAry,0);
+
 
 	checkCudaErrors(cudaMemcpy(d_blockGenerations, blockGenerations, numOfBlocks*sizeof(int), cudaMemcpyHostToDevice));
 	
 	checkCudaErrors(cudaMemcpy(d_bordersArray, bordersArray, sizeOfBordersAry*sizeof(byte), cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(d_bordersArray2, bordersArray, sizeOfBordersAry*sizeof(byte), cudaMemcpyHostToDevice));
 
 
 	// original stuff
@@ -78,7 +82,7 @@ int host(int numberOfCols, int numberOfRows, byte* input, byte* output, int iter
 
 	dim3 threads(NUM_THREADS_X,NUM_THREADS_Y);
 	dim3 grid(NUM_BLOCKS_X,NUM_BLOCKS_Y);
-	kernel<<<grid,threads>>>(d_in,d_out,numberOfRows,numberOfCols,numberOfVirtualBlockX,numberOfVirtualBlockY,iterations,d_bordersArray,d_blockGenerations);
+	kernel<<<grid,threads>>>(d_in,d_out,numberOfRows,numberOfCols,numberOfVirtualBlockX,numberOfVirtualBlockY,iterations,d_bordersArray,d_bordersArray2,d_blockGenerations);
 	
 
 	/*if (iterations % 2 == 0) {
@@ -230,7 +234,7 @@ __forceinline__ __device__ void share2glob(byte * blockWithMargin,byte *BordersA
 	byte *row2Fill;
 	int writeIndex;
 
-		int dev8 = tx;
+		int dev8 = threadIdx.x;
 		
 		// copy border UP
 		row2Fill = getUPBorder(BordersAryPlace,totalCols,totalRows);
@@ -287,6 +291,7 @@ __forceinline__ __device__ void share2glob(byte * blockWithMargin,byte *BordersA
 __forceinline__ __device__ void fillBorders(byte * blockWithMargin,byte *fullBordersArry,int VBx,int VBy,int totalVBCols,
 	int usedColsNoMar, int usedRowsNoMar, int totalCols,int totalRows)
 {
+	const int tx = threadIdx.x;
 
 	// ajust to margin 
 	//VBx +=1;
@@ -428,7 +433,7 @@ __forceinline__ __device__ void  eval(byte * srcBlockWithMargin,byte * tarBlockW
 
 __global__ void kernel(byte* input, byte* output,const int numberOfRows,const int numberOfCols,
 	int numberOfVirtualBlockX, int numberOfVirtualBlockY,
-	int iterations,byte *bordersArray,int * blockGenerations)
+	int iterations, byte *bordersArray, byte *bordersArray2, int * blockGenerations)
 {
 	//int sizeXmargin = GLOBAL_MARGIN_SIZE + numberOfCols;
 
@@ -452,6 +457,9 @@ __global__ void kernel(byte* input, byte* output,const int numberOfRows,const in
 	/// here we need to allocate all the shared
 
 	
+	byte* bordersIn = bordersArray;
+	byte* bordersOut = bordersArray2;
+
 	byte *currentWork;
 	byte *nextWork;
 
@@ -517,7 +525,7 @@ __global__ void kernel(byte* input, byte* output,const int numberOfRows,const in
 								packer(nextWork,&packed__shared__[packedIndex*sizeOfPackedVB],usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y);
 							//}
 							
-							share2glob(nextWork,getBordersVBfromXY(bordersArray,virtualGlobalBlockX,virtualGlobalBlockY,numberOfVirtualBlockX,NUM_THREADS_X,NUM_THREADS_Y),
+							share2glob(nextWork,getBordersVBfromXY(bordersIn,virtualGlobalBlockX,virtualGlobalBlockY,numberOfVirtualBlockX,NUM_THREADS_X,NUM_THREADS_Y),
 								usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y);
 						}
 			
@@ -572,7 +580,7 @@ __global__ void kernel(byte* input, byte* output,const int numberOfRows,const in
 				int absRow = (virtualGlobalBlockY * NUM_THREADS_Y) + threadIdx.y;
 				int absCol = (virtualGlobalBlockX * NUM_THREADS_X) + threadIdx.x;
 
-				fillBorders(currentWork,bordersArray,virtualGlobalBlockX,virtualGlobalBlockY,((numberOfCols+NUM_THREADS_X-1)/NUM_THREADS_X)+GEN_MARGIN_SIZE,usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y);
+				fillBorders(currentWork,bordersIn,virtualGlobalBlockX,virtualGlobalBlockY,((numberOfCols+NUM_THREADS_X-1)/NUM_THREADS_X),usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y);
 
 				unpacker(&packed__shared__[packedIndex*sizeOfPackedVB],currentWork,usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y);
 				}
@@ -605,8 +613,8 @@ __global__ void kernel(byte* input, byte* output,const int numberOfRows,const in
 						packer(nextWork,&packed__shared__[packedIndex*sizeOfPackedVB],usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y);
 					//}
 
-					share2glob(nextWork,getBordersVBfromXY(bordersArray,virtualGlobalBlockX,virtualGlobalBlockY,numberOfVirtualBlockX,NUM_THREADS_X,NUM_THREADS_Y),
-						usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y);
+					share2glob(nextWork,getBordersVBfromXY(bordersOut,virtualGlobalBlockX,virtualGlobalBlockY,numberOfVirtualBlockX,NUM_THREADS_X,NUM_THREADS_Y),
+							usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y);
 				}
 				}
 			
@@ -625,6 +633,10 @@ __global__ void kernel(byte* input, byte* output,const int numberOfRows,const in
 			virtualGlobalBlockY += virtualGlobalBlockX / numberOfVirtualBlockX;
 			virtualGlobalBlockX = virtualGlobalBlockX % numberOfVirtualBlockX;
 		}
+
+		byte* tmp = bordersIn;
+		bordersIn = bordersOut;
+		bordersOut = tmp;
 	}
 
 	// DOR K - write to global
