@@ -9,53 +9,58 @@ void fillBorders(byte * blockWithMargin,byte *fullBordersArry,int VBx,int VBy,in
 {
 
 	// ajust to margin 
-	VBx +=1;
-	VBy +=1;
+	//VBx +=1;
+	//VBy +=1;
+
+	const int totalColsWithMar = totalCols+ MARGIN_SIZE_COLS;
+	const int totalRowsWithMar = totalRows + MARGIN_SIZE_ROWS;
 
 	byte* borderPtr;
 	// LEFT UP
 		borderPtr = getDOWNBorder(getBordersVBfromXY(fullBordersArry,VBx-1,VBy-1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
-		blockWithMargin[0*totalCols+0] = borderPtr[totalCols-MARGIN_SIZE_COLS-1]; // -1 , cuz 0 based. (no margin!!!)
+		blockWithMargin[0*totalColsWithMar+0] = borderPtr[totalCols-1]; // -1 , cuz 0 based. (no margin!!!)
 
 	// UP
 		borderPtr = getDOWNBorder(getBordersVBfromXY(fullBordersArry,VBx,VBy-1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
-		for (int col=1+tx;col<totalCols-(MARGIN_SIZE_COLS-2)-1;col+=32)
+		for (int col=1+tx;col<totalColsWithMar-(MARGIN_SIZE_COLS-2)-1;col+=32)
 		{
-			blockWithMargin[0*totalCols+col] = borderPtr[col-1];
+			blockWithMargin[0*totalColsWithMar+col] = borderPtr[col-1];
 		}
 
 	// RIGHT UP
 		borderPtr = getDOWNBorder(getBordersVBfromXY(fullBordersArry,VBx+1,VBy-1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
-		blockWithMargin[0*totalCols + totalCols-(MARGIN_SIZE_COLS-2)-1] = borderPtr[0]; 
+		blockWithMargin[0*totalColsWithMar + (usedColsNoMar+1)] = borderPtr[0]; 
 
 	// LEFT
-		borderPtr = getRIGHTBorder(getBordersVBfromXY(fullBordersArry,VBx-1,VBy,totalVBCols,totalCols,totalRows),totalCols,totalRows);
-		for (int row=1+tx;row<totalRows-(MARGIN_SIZE_ROWS-2)-1 ;row+=32)
+		byte * ptr1 = getBordersVBfromXY(fullBordersArry,VBx-1,VBy,totalVBCols,totalCols,totalRows);
+		borderPtr = getRIGHTBorder(ptr1,totalCols,totalRows);
+		for (int row=1+tx;row<totalRowsWithMar-(MARGIN_SIZE_ROWS-2)-1 ;row+=32)
 		{
-			blockWithMargin[row*totalCols + 0] = borderPtr[row-1];
+			blockWithMargin[row*totalColsWithMar + 0] = borderPtr[row-1];
 		}
 
 	// RIGHT
-		borderPtr = getLEFTBorder(getBordersVBfromXY(fullBordersArry,VBx+1,VBy,totalVBCols,totalCols,totalRows),totalCols,totalRows);
-		for (int row=1+tx;row<totalRows-(MARGIN_SIZE_ROWS-2) -1 ;row+=32)
+		byte * ptr2 = getBordersVBfromXY(fullBordersArry,VBx+1,VBy,totalVBCols,totalCols,totalRows);
+		borderPtr = getLEFTBorder(ptr2,totalCols,totalRows);
+		for (int row=1+tx;row<totalRowsWithMar-(MARGIN_SIZE_ROWS-2) -1 ;row+=32)
 		{
-			blockWithMargin[row*totalCols + (totalCols-(MARGIN_SIZE_COLS-2)-1)] = borderPtr[row-1];
+			blockWithMargin[row*totalColsWithMar + (usedColsNoMar+1)] = borderPtr[row-1];
 		}
 
 	// DOWN LEFT
 		borderPtr = getUPBorder(getBordersVBfromXY(fullBordersArry,VBx-1,VBy+1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
-		blockWithMargin[(totalRows -1) * totalCols + 0] = borderPtr[totalRows-MARGIN_SIZE_ROWS-1]; // -1 cuz 0 based  . (no margin!!!)
+		blockWithMargin[(usedRowsNoMar +1) * totalColsWithMar + 0] = borderPtr[totalCols-1]; // -1 cuz 0 based  . (no margin!!!)
 
 	// DOWN
 		borderPtr = getUPBorder(getBordersVBfromXY(fullBordersArry,VBx,VBy+1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
-		for (int col=1+tx;col<=totalCols-MARGIN_SIZE_COLS;col+=32)
+		for (int col=1+tx;col<=totalColsWithMar-MARGIN_SIZE_COLS;col+=32)
 		{
-			blockWithMargin[(totalRows-1)*totalCols+col] = borderPtr[col-1];
+			blockWithMargin[(usedRowsNoMar +1)*totalColsWithMar+col] = borderPtr[col-1];
 		}
 
 	// DOWN RIGHT
 		borderPtr = getUPBorder(getBordersVBfromXY(fullBordersArry,VBx+1,VBy+1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
-		blockWithMargin[(totalRows-1) * totalCols + totalCols-(MARGIN_SIZE_COLS-2)-1] = borderPtr[0]; 
+		blockWithMargin[(usedRowsNoMar +1) * totalColsWithMar + (usedColsNoMar+1)] = borderPtr[0]; 
 }
 
 

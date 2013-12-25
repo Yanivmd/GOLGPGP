@@ -70,8 +70,11 @@ void share2glob(byte * blockWithMargin,byte *BordersAryPlace,int usedColsNoMar, 
 void share2glob(byte * blockWithMargin,byte *BordersAryPlace,int usedColsNoMar, int usedRowsNoMar, int totalCols,int totalRows,int tx, int ty)
 {
 
-	totalCols += MARGIN_SIZE_COLS;
-	totalRows += MARGIN_SIZE_ROWS;
+	//totalCols = MARGIN_SIZE_COLS;
+	//totalRows = MARGIN_SIZE_ROWS;
+
+	const int totalColsWithMar = totalCols+ MARGIN_SIZE_COLS;
+	const int totalRowsWithMar = totalRows + MARGIN_SIZE_ROWS;
 
 	byte *row2Fill;
 	int writeIndex;
@@ -85,7 +88,7 @@ void share2glob(byte * blockWithMargin,byte *BordersAryPlace,int usedColsNoMar, 
 		{
 			for (int col=1+dev8;col<=usedColsNoMar;col+=32)
 			{
-				row2Fill[writeIndex] = blockWithMargin[row * (totalCols) + col];
+				row2Fill[writeIndex] = blockWithMargin[row * (totalColsWithMar) + col];
 				writeIndex +=32;
 			}
 		}
@@ -97,7 +100,7 @@ void share2glob(byte * blockWithMargin,byte *BordersAryPlace,int usedColsNoMar, 
 		{
 			for (int col=1+dev8;col<=usedColsNoMar;col+=32)
 			{	
-				row2Fill[writeIndex] = blockWithMargin[row * (totalCols) + col];
+				row2Fill[writeIndex] = blockWithMargin[row * (totalColsWithMar) + col];
 				writeIndex +=32;
 			}
 		}
@@ -110,7 +113,7 @@ void share2glob(byte * blockWithMargin,byte *BordersAryPlace,int usedColsNoMar, 
 			for (int col=1;col<=1;col++)
 			{
 				// move past margin, then skip n rows...
-				row2Fill[writeIndex] = blockWithMargin[row * (totalCols) + col];
+				row2Fill[writeIndex] = blockWithMargin[row * (totalColsWithMar) + col];
 				writeIndex +=32;
 			}
 		}
@@ -123,7 +126,7 @@ void share2glob(byte * blockWithMargin,byte *BordersAryPlace,int usedColsNoMar, 
 			for (int col=usedColsNoMar;col<=usedColsNoMar;col++)
 			{
 				// move past margin, then skip n rows...
-				row2Fill[writeIndex] = blockWithMargin[row * (totalCols) + col];
+				row2Fill[writeIndex] = blockWithMargin[row * (totalColsWithMar) + col];
 				writeIndex +=32;
 			}
 		}

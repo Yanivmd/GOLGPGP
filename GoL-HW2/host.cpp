@@ -30,6 +30,7 @@ void getFirstVB(int * vbx, int * vby, int blockIdxx,int blockIdxy)
 int *blockGenerations;
 
 byte *bordersArray;
+byte *bordersArray2;
 
 
 void check(int numberOfVirtualBlockX,int numberOfVirtualBlockY, int absGenLocInArray)
@@ -74,6 +75,9 @@ void kernel(byte* input, byte* output,const int numberOfRows,const int numberOfC
 	/// here we need to allocate all the shared
 
 	
+	byte* bordersIn = bordersArray;
+	byte* bordersOut = bordersArray2;
+
 	byte *currentWork;
 	byte *nextWork;
 
@@ -114,7 +118,7 @@ void kernel(byte* input, byte* output,const int numberOfRows,const int numberOfC
 						nextWork[(threadIdxy+1)*(NUM_THREADS_X+MARGIN_SIZE_COLS)+threadIdxx+1] = in[(absRow+1)*(numberOfCols+GLOBAL_MARGIN_SIZE)+absCol+1];
 					}
 
-					//fillBorders(currentWork,bordersArray,virtualGlobalBlockX,virtualGlobalBlockY,totalNumberOfVbsX,usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,threadIdxx,threadIdxy);
+					//fillBorders(currentWork,bordersIn,virtualGlobalBlockX,virtualGlobalBlockY,totalNumberOfVbsX,usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,threadIdxx,threadIdxy);
 
 					//unpacker(&packed__shared__[packedIndex*sizeOfPackedVB],currentWork,usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,threadIdxx,threadIdxy);
 
@@ -138,7 +142,7 @@ void kernel(byte* input, byte* output,const int numberOfRows,const int numberOfC
 								packer(nextWork,&packed__shared__[packedIndex*sizeOfPackedVB],usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,threadIdxx,threadIdxy);
 							//}
 
-							share2glob(nextWork,getBordersVBfromXY(bordersArray,virtualGlobalBlockX,virtualGlobalBlockY,numberOfVirtualBlockX,NUM_THREADS_X,NUM_THREADS_Y),
+							share2glob(nextWork,getBordersVBfromXY(bordersIn,virtualGlobalBlockX,virtualGlobalBlockY,numberOfVirtualBlockX,NUM_THREADS_X,NUM_THREADS_Y),
 								usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,threadIdxx,threadIdxy);
 						}
 			
@@ -192,9 +196,18 @@ void kernel(byte* input, byte* output,const int numberOfRows,const int numberOfC
 				int absRow = (virtualGlobalBlockY * NUM_THREADS_Y) + threadIdxy;
 				int absCol = (virtualGlobalBlockX * NUM_THREADS_X) + threadIdxx;
 
-				fillBorders(currentWork,bordersArray,virtualGlobalBlockX,virtualGlobalBlockY,((numberOfCols+NUM_THREADS_X-1)/NUM_THREADS_X)+GEN_MARGIN_SIZE,usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,threadIdxx,threadIdxy);
+				//fillBorders(currentWork,borderIn,virtualGlobalBlockX,virtualGlobalBlockY,((numberOfCols+NUM_THREADS_X-1)/NUM_THREADS_X)+GEN_MARGIN_SIZE,usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,threadIdxx,threadIdxy);
 
 				unpacker(&packed__shared__[packedIndex*sizeOfPackedVB],currentWork,usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,threadIdxx,threadIdxy);
+				}
+
+				for (int threadIdxx=0;threadIdxx<NUM_THREADS_X;threadIdxx++)
+					for (int threadIdxy=0;threadIdxy<NUM_THREADS_Y;threadIdxy++)
+				{
+					int absRow = (virtualGlobalBlockY * NUM_THREADS_Y) + threadIdxy;
+					int absCol = (virtualGlobalBlockX * NUM_THREADS_X) + threadIdxx;
+
+					fillBorders(currentWork,bordersIn,virtualGlobalBlockX,virtualGlobalBlockY,((numberOfCols+NUM_THREADS_X-1)/NUM_THREADS_X),usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,threadIdxx,threadIdxy);
 				}
 
 				for (int threadIdxx=0;threadIdxx<NUM_THREADS_X;threadIdxx++)
@@ -204,10 +217,10 @@ void kernel(byte* input, byte* output,const int numberOfRows,const int numberOfC
 					int absRow = (virtualGlobalBlockY * NUM_THREADS_Y) + threadIdxy;
 					int absCol = (virtualGlobalBlockX * NUM_THREADS_X) + threadIdxx;
 
-				//__syncthreads();
-				if ((absRow < numberOfRows) && (absCol < numberOfCols)) {
-					eval(currentWork,nextWork,NUM_THREADS_X,NUM_THREADS_Y,threadIdxx,threadIdxy);
-				}
+					//__syncthreads();
+					if ((absRow < numberOfRows) && (absCol < numberOfCols)) {
+						eval(currentWork,nextWork,NUM_THREADS_X,NUM_THREADS_Y,threadIdxx,threadIdxy);
+					}
 				}
 
 				//__syncthreads();
@@ -216,17 +229,17 @@ void kernel(byte* input, byte* output,const int numberOfRows,const int numberOfC
 				for (int threadIdxy=0;threadIdxy<NUM_THREADS_Y;threadIdxy++)
 				{
 
-				int absRow = (virtualGlobalBlockY * NUM_THREADS_Y) + threadIdxy;
-				int absCol = (virtualGlobalBlockX * NUM_THREADS_X) + threadIdxx;
+					int absRow = (virtualGlobalBlockY * NUM_THREADS_Y) + threadIdxy;
+					int absCol = (virtualGlobalBlockX * NUM_THREADS_X) + threadIdxx;
 
-				if (threadIdxy < usedRows) {
-					if ((absRow < numberOfRows) && (absCol < numberOfCols)) {
-						packer(nextWork,&packed__shared__[packedIndex*sizeOfPackedVB],usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,threadIdxx,threadIdxy);
+					if (threadIdxy < usedRows) {
+						//if ((absRow < numberOfRows) && (absCol < numberOfCols)) {
+							packer(nextWork,&packed__shared__[packedIndex*sizeOfPackedVB],usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,threadIdxx,threadIdxy);
+						//}
+
+						share2glob(nextWork,getBordersVBfromXY(bordersOut,virtualGlobalBlockX,virtualGlobalBlockY,numberOfVirtualBlockX,NUM_THREADS_X,NUM_THREADS_Y),
+							usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,threadIdxx,threadIdxy);
 					}
-
-					share2glob(nextWork,getBordersVBfromXY(bordersArray,virtualGlobalBlockX,virtualGlobalBlockY,numberOfVirtualBlockX,NUM_THREADS_X,NUM_THREADS_Y),
-						usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,threadIdxx,threadIdxy);
-				}
 				}
 			
 				// this is not necessary on last iteration
@@ -244,6 +257,10 @@ void kernel(byte* input, byte* output,const int numberOfRows,const int numberOfC
 			virtualGlobalBlockY += virtualGlobalBlockX / numberOfVirtualBlockX;
 			virtualGlobalBlockX = virtualGlobalBlockX % numberOfVirtualBlockX;
 		}
+
+		byte* tmp = bordersIn;
+		bordersIn = bordersOut;
+		bordersOut = tmp;
 	}
 
 	// DOR K - write to global
@@ -338,6 +355,8 @@ int host(int numberOfCols, int numberOfRows, byte* input, byte* output, int iter
 
 	bordersArray = new byte[(numberOfVirtualBlockY+GEN_MARGIN_SIZE)*(numberOfVirtualBlockX+GEN_MARGIN_SIZE)*(NUM_THREADS_X*2+NUM_THREADS_Y*2)];
 	std::fill_n(bordersArray,(numberOfVirtualBlockY+GEN_MARGIN_SIZE)*(numberOfVirtualBlockX+GEN_MARGIN_SIZE)*(NUM_THREADS_X*2+NUM_THREADS_Y*2),0);
+	bordersArray2 = new byte[(numberOfVirtualBlockY+GEN_MARGIN_SIZE)*(numberOfVirtualBlockX+GEN_MARGIN_SIZE)*(NUM_THREADS_X*2+NUM_THREADS_Y*2)];
+	std::fill_n(bordersArray2,(numberOfVirtualBlockY+GEN_MARGIN_SIZE)*(numberOfVirtualBlockX+GEN_MARGIN_SIZE)*(NUM_THREADS_X*2+NUM_THREADS_Y*2),0);
 
 	kernel(input,output,numberOfRows,numberOfCols,numberOfVirtualBlockX,numberOfVirtualBlockY,iterations);
 	

@@ -6,7 +6,7 @@
 
 // CUDA runtime
 
-#define CUDA
+//#define CUDA
 
 #ifdef CUDA
 #include <cuda.h>
@@ -106,8 +106,8 @@ using namespace std;
 
 #define GLOBAL_MARGIN_SIZE 2
 
-#define MAX_NUMBER_COLS 1000
-#define MAX_NUMBER_ROWS 1000
+#define MAX_NUMBER_COLS 200
+#define MAX_NUMBER_ROWS 200
 
 
 #define VB_MARGIN_SIZE 2
@@ -127,22 +127,22 @@ int host(int sizeX, int sizeY, byte* input, byte* output, int iterations);
 
 inline byte * getUPBorder(byte * BordersAryPlace,int totalCols,int totalRows)
 {
-	return &(BordersAryPlace[(totalCols-MARGIN_SIZE_COLS)*0]);
+	return &(BordersAryPlace[(totalCols)*0]);
 }
 
 inline byte * getDOWNBorder(byte * BordersAryPlace,int totalCols,int totalRows)
 {
-	return &(BordersAryPlace[(totalCols-MARGIN_SIZE_COLS)*1]);
+	return &(BordersAryPlace[(totalCols)*1]);
 }
 
 inline byte * getLEFTBorder(byte * BordersAryPlace,int totalCols,int totalRows)
 {
-	return &(BordersAryPlace[(totalCols-MARGIN_SIZE_COLS)*2]);
+	return &(BordersAryPlace[(totalCols)*2]);
 }
 
 inline byte * getRIGHTBorder(byte * BordersAryPlace,int totalCols,int totalRows)
 {
-	return &(BordersAryPlace[(totalCols-MARGIN_SIZE_COLS)*2 + (totalRows-MARGIN_SIZE_ROWS)*1]);
+	return &(BordersAryPlace[(totalCols)*2 + (totalRows)*1]);
 }
 
 
@@ -157,7 +157,8 @@ void eval(byte * srcBlockWithMargin,byte * tarBlockWithMargin,int NumberOfColsNo
 // TODO: make sure that totalVBCols includes the margin, so these calculations are ok.
 inline byte* getBordersVBfromXY(byte *fullBordersArry,int VBx,int VBy,int totalVBCols,int totalCols,int totalRows)
 {
-	return &(fullBordersArry[((VBy*totalVBCols)+VBx)*  (   (totalCols-MARGIN_SIZE_COLS)  *2 +  (totalRows-MARGIN_SIZE_ROWS)*2  )  ]);
+	// ajust to margin 
+	return &(fullBordersArry[((VBy+1)*(totalVBCols+VB_MARGIN_SIZE)+VBx+1)*  (   (totalCols)  *2 +  (totalRows)*2  )  ]);
 }
 
 void share2glob(byte * blockWithMargin,byte *BordersAryPlace,int usedColsNoMar, int usedRowsNoMar, int totalCols,int totalRows,int tx, int ty);

@@ -366,27 +366,27 @@ __forceinline__ __device__  void unpacker(byte* in, byte* out, int numUsedCols, 
 	const int tx = threadIdx.x;
 	const int ty = threadIdx.y;
 
-	int roundedTotalCols = ((numTotalCols+7)/8)*8;
-	int inIndex = ty*roundedTotalCols+tx;
+	int roundedTotalCols = ((numTotalCols+7)/8);
+	int inIndex = ty*roundedTotalCols+tx/8;
 	int outIndexMargin = (ty+1)*(numTotalCols+MARGIN_SIZE_COLS) + tx + 1;
 	if ((tx < numUsedCols) && (ty < numUsedRows)) {
-		byte n1 = (in[inIndex/8] >> (tx%8)) & 0x1;
+		byte n1 = (in[inIndex] >> (tx%8)) & 0x1;
 		out[outIndexMargin] = n1;
 	}
 } 
 
-__forceinline__ __device__ void check(int numberOfVirtualBlockX,int numberOfVirtualBlockY, int absGenLocInArray)
+__forceinline__ __device__ void check(int numberOfVirtualBlockX,int numberOfVirtualBlockY, int absGenLocInArray,int * blockGenerations,int k)
 {
-	//__threadfence_system();
+	__threadfence_system();
 	for (int i=-1; i<=1; i++) {
 		for (int j=-1; j<=1; j++) {
 			int genIndex = (i * numberOfVirtualBlockX) + j + absGenLocInArray;
 			if ((genIndex >= 0) && (genIndex < (numberOfVirtualBlockX * numberOfVirtualBlockY)))
 			{
-				/*
+				
 				while (blockGenerations[genIndex] < k)
 					__threadfence_system();
-				*/
+				
 			}
 						
 		}
@@ -474,7 +474,7 @@ __global__ void kernel(byte* input, byte* output,const int numberOfRows,const in
 			while (virtualGlobalBlockX < numberOfVirtualBlockX) {
 
 				int absGenLocInArray = (virtualGlobalBlockY * numberOfVirtualBlockX) + virtualGlobalBlockX;
-				//check(numberOfVirtualBlockX,numberOfVirtualBlockY,absGenLocInArray);
+				//check(numberOfVirtualBlockX,numberOfVirtualBlockY,absGenLocInArray,blockGenerations,0);
 
 				int usedCols = min(NUM_THREADS_X,numberOfCols-(virtualGlobalBlockX * NUM_THREADS_X));
 				int usedRows = min(NUM_THREADS_Y,numberOfRows-(virtualGlobalBlockY * NUM_THREADS_Y));
@@ -565,7 +565,7 @@ __global__ void kernel(byte* input, byte* output,const int numberOfRows,const in
 					for (int threadIdxy=0;threadIdxy<NUM_THREADS_Y;threadIdxy++)*/
 				{
 				
-				check(numberOfVirtualBlockX,numberOfVirtualBlockY,absGenLocInArray);
+				check(numberOfVirtualBlockX,numberOfVirtualBlockY,absGenLocInArray,blockGenerations,k);
 
 				int absRow = (virtualGlobalBlockY * NUM_THREADS_Y) + threadIdx.y;
 				int absCol = (virtualGlobalBlockX * NUM_THREADS_X) + threadIdx.x;

@@ -9,8 +9,8 @@ void eval(byte * srcBlockWithMargin,byte * tarBlockWithMargin,int totalCols, int
 {
 	// i assume the check done to see if we can cals 
 	int numberOfColsWithMar = totalCols + MARGIN_SIZE_COLS;
-	byte *ptr = &(srcBlockWithMargin[((tx+1) * numberOfColsWithMar) + (ty+1)]);
-	byte *out = &(tarBlockWithMargin[((tx+1) * numberOfColsWithMar) + (ty+1)]);
+	byte *ptr = &(srcBlockWithMargin[((ty+1) * numberOfColsWithMar) + (tx+1)]);
+	byte *out = &(tarBlockWithMargin[((ty+1) * numberOfColsWithMar) + (tx+1)]);
 	//TODO check neighbors vector
 	int neighbors = 0;
 
