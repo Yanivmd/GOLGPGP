@@ -224,13 +224,13 @@ const int totalVirtaulBlocksPerSM = (totalNumberOfVBs) / gridDimx;
 __forceinline__ __device__ void share2glob(byte * blockWithMargin,byte *BordersAryPlace,int usedColsNoMar, int usedRowsNoMar, int totalCols,int totalRows)
 {
 
-	totalCols += MARGIN_SIZE_COLS;
-	totalRows += MARGIN_SIZE_ROWS;
+	const int totalColsWithMar = totalCols+ MARGIN_SIZE_COLS;
+	const int totalRowsWithMar = totalRows + MARGIN_SIZE_ROWS;
 
 	byte *row2Fill;
 	int writeIndex;
 
-		int dev8 = threadIdx.x;
+		int dev8 = tx;
 		
 		// copy border UP
 		row2Fill = getUPBorder(BordersAryPlace,totalCols,totalRows);
@@ -239,7 +239,7 @@ __forceinline__ __device__ void share2glob(byte * blockWithMargin,byte *BordersA
 		{
 			for (int col=1+dev8;col<=usedColsNoMar;col+=32)
 			{
-				row2Fill[writeIndex] = blockWithMargin[row * (totalCols) + col];
+				row2Fill[writeIndex] = blockWithMargin[row * (totalColsWithMar) + col];
 				writeIndex +=32;
 			}
 		}
@@ -251,7 +251,7 @@ __forceinline__ __device__ void share2glob(byte * blockWithMargin,byte *BordersA
 		{
 			for (int col=1+dev8;col<=usedColsNoMar;col+=32)
 			{	
-				row2Fill[writeIndex] = blockWithMargin[row * (totalCols) + col];
+				row2Fill[writeIndex] = blockWithMargin[row * (totalColsWithMar) + col];
 				writeIndex +=32;
 			}
 		}
@@ -264,7 +264,7 @@ __forceinline__ __device__ void share2glob(byte * blockWithMargin,byte *BordersA
 			for (int col=1;col<=1;col++)
 			{
 				// move past margin, then skip n rows...
-				row2Fill[writeIndex] = blockWithMargin[row * (totalCols) + col];
+				row2Fill[writeIndex] = blockWithMargin[row * (totalColsWithMar) + col];
 				writeIndex +=32;
 			}
 		}
@@ -277,7 +277,7 @@ __forceinline__ __device__ void share2glob(byte * blockWithMargin,byte *BordersA
 			for (int col=usedColsNoMar;col<=usedColsNoMar;col++)
 			{
 				// move past margin, then skip n rows...
-				row2Fill[writeIndex] = blockWithMargin[row * (totalCols) + col];
+				row2Fill[writeIndex] = blockWithMargin[row * (totalColsWithMar) + col];
 				writeIndex +=32;
 			}
 		}
@@ -289,56 +289,58 @@ __forceinline__ __device__ void fillBorders(byte * blockWithMargin,byte *fullBor
 {
 
 	// ajust to margin 
-	VBx +=1;
-	VBy +=1;
+	//VBx +=1;
+	//VBy +=1;
 
-	const int tx = threadIdx.x;
-	const int ty = threadIdx.y;
+	const int totalColsWithMar = totalCols+ MARGIN_SIZE_COLS;
+	const int totalRowsWithMar = totalRows + MARGIN_SIZE_ROWS;
 
 	byte* borderPtr;
 	// LEFT UP
 		borderPtr = getDOWNBorder(getBordersVBfromXY(fullBordersArry,VBx-1,VBy-1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
-		blockWithMargin[0*totalCols+0] = borderPtr[totalCols-MARGIN_SIZE_COLS-1]; // -1 , cuz 0 based. (no margin!!!)
+		blockWithMargin[0*totalColsWithMar+0] = borderPtr[totalCols-1]; // -1 , cuz 0 based. (no margin!!!)
 
 	// UP
 		borderPtr = getDOWNBorder(getBordersVBfromXY(fullBordersArry,VBx,VBy-1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
-		for (int col=1+tx;col<totalCols-(MARGIN_SIZE_COLS-2)-1;col+=32)
+		for (int col=1+tx;col<totalColsWithMar-(MARGIN_SIZE_COLS-2)-1;col+=32)
 		{
-			blockWithMargin[0*totalCols+col] = borderPtr[col-1];
+			blockWithMargin[0*totalColsWithMar+col] = borderPtr[col-1];
 		}
 
 	// RIGHT UP
 		borderPtr = getDOWNBorder(getBordersVBfromXY(fullBordersArry,VBx+1,VBy-1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
-		blockWithMargin[0*totalCols + totalCols-(MARGIN_SIZE_COLS-2)-1] = borderPtr[0]; 
+		blockWithMargin[0*totalColsWithMar + (usedColsNoMar+1)] = borderPtr[0]; 
 
 	// LEFT
-		borderPtr = getRIGHTBorder(getBordersVBfromXY(fullBordersArry,VBx-1,VBy,totalVBCols,totalCols,totalRows),totalCols,totalRows);
-		for (int row=1+tx;row<totalRows-(MARGIN_SIZE_ROWS-2)-1 ;row+=32)
+		byte * ptr1 = getBordersVBfromXY(fullBordersArry,VBx-1,VBy,totalVBCols,totalCols,totalRows);
+		borderPtr = getRIGHTBorder(ptr1,totalCols,totalRows);
+		for (int row=1+tx;row<totalRowsWithMar-(MARGIN_SIZE_ROWS-2)-1 ;row+=32)
 		{
-			blockWithMargin[row*totalCols + 0] = borderPtr[row-1];
+			blockWithMargin[row*totalColsWithMar + 0] = borderPtr[row-1];
 		}
 
 	// RIGHT
-		borderPtr = getLEFTBorder(getBordersVBfromXY(fullBordersArry,VBx+1,VBy,totalVBCols,totalCols,totalRows),totalCols,totalRows);
-		for (int row=1+tx;row<totalRows-(MARGIN_SIZE_ROWS-2) -1 ;row+=32)
+		byte * ptr2 = getBordersVBfromXY(fullBordersArry,VBx+1,VBy,totalVBCols,totalCols,totalRows);
+		borderPtr = getLEFTBorder(ptr2,totalCols,totalRows);
+		for (int row=1+tx;row<totalRowsWithMar-(MARGIN_SIZE_ROWS-2) -1 ;row+=32)
 		{
-			blockWithMargin[row*totalCols + (totalCols-(MARGIN_SIZE_COLS-2)-1)] = borderPtr[row-1];
+			blockWithMargin[row*totalColsWithMar + (usedColsNoMar+1)] = borderPtr[row-1];
 		}
 
 	// DOWN LEFT
 		borderPtr = getUPBorder(getBordersVBfromXY(fullBordersArry,VBx-1,VBy+1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
-		blockWithMargin[(totalRows -1) * totalCols + 0] = borderPtr[totalRows-MARGIN_SIZE_ROWS-1]; // -1 cuz 0 based  . (no margin!!!)
+		blockWithMargin[(usedRowsNoMar +1) * totalColsWithMar + 0] = borderPtr[totalCols-1]; // -1 cuz 0 based  . (no margin!!!)
 
 	// DOWN
 		borderPtr = getUPBorder(getBordersVBfromXY(fullBordersArry,VBx,VBy+1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
-		for (int col=1+tx;col<=totalCols-MARGIN_SIZE_COLS;col+=32)
+		for (int col=1+tx;col<=totalColsWithMar-MARGIN_SIZE_COLS;col+=32)
 		{
-			blockWithMargin[(totalRows-1)*totalCols+col] = borderPtr[col-1];
+			blockWithMargin[(usedRowsNoMar +1)*totalColsWithMar+col] = borderPtr[col-1];
 		}
 
 	// DOWN RIGHT
 		borderPtr = getUPBorder(getBordersVBfromXY(fullBordersArry,VBx+1,VBy+1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
-		blockWithMargin[(totalRows-1) * totalCols + totalCols-(MARGIN_SIZE_COLS-2)-1] = borderPtr[0]; 
+		blockWithMargin[(usedRowsNoMar +1) * totalColsWithMar + (usedColsNoMar+1)] = borderPtr[0]; 
 }
 
 __forceinline__ __device__  void packer(byte* in, byte* out, int numUsedCols, int numUsedRows, int numTotalCols, int numTotalRows)
@@ -366,7 +368,7 @@ __forceinline__ __device__  void unpacker(byte* in, byte* out, int numUsedCols, 
 	const int tx = threadIdx.x;
 	const int ty = threadIdx.y;
 
-	int roundedTotalCols = ((numTotalCols+7)/8);
+	int roundedTotalCols = (numTotalCols+7)/8;
 	int inIndex = ty*roundedTotalCols+tx/8;
 	int outIndexMargin = (ty+1)*(numTotalCols+MARGIN_SIZE_COLS) + tx + 1;
 	if ((tx < numUsedCols) && (ty < numUsedRows)) {
