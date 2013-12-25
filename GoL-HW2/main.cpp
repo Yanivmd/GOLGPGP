@@ -104,12 +104,12 @@ int main(int argc, char** argv)
     
     string infilename("spaceship.lif");
     string outfilename("spaceship.lif.out");
-    int iterations = 1;
+    int iterations = 78;
   
     PatternBlock tblock;
     FieldReader reader;
     int fieldSizeX = 123;       //<- FIELD_SIZE_X
-    int fieldSizeY = 67;        //<- FIELD_SIZE_Y
+    int fieldSizeY = 45;        //<- FIELD_SIZE_Y
 
     byte *cpuin = new byte[(fieldSizeY+2)*(fieldSizeX+2)];
     byte *gpuin = new byte[(fieldSizeY+2)*(fieldSizeX+2)];
