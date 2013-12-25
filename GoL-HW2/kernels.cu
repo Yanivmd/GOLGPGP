@@ -115,20 +115,19 @@ const int totalVirtaulBlocksPerSM = (totalNumberOfVBs) / gridDimx;
 
 
 // TODO - all y!=0 are waisted...
-__forceinline__ __device__ void share2glob(byte * blockWithMargin,byte *BordersAryPlace,int usedColsNoMar, int usedRowsNoMar, int totalCols,int totalRows)
+__forceinline__ __device__ void share2glob(byte * blockWithMargin,byte *BordersAryPlace,int usedColsNoMar, int usedRowsNoMar, int totalCols,int totalRows, byte numberOfWarpsToUse)
 {
 
 	const int tx = threadIdx.x;
 	const int ty = threadIdx.y;
 
 	const int totalColsWithMar = totalCols+ MARGIN_SIZE_COLS;
-	const int totalRowsWithMar = totalRows + MARGIN_SIZE_ROWS;
 
 	byte *row2Fill;
 	int writeIndex;
 
 	int dev8 = tx;
-		
+
 	if (ty % numberOfWarpsToUse == (0 % numberOfWarpsToUse))
 	{
 
@@ -195,7 +194,7 @@ __forceinline__ __device__ void share2glob(byte * blockWithMargin,byte *BordersA
 
 
 __forceinline__ __device__ void fillBorders(byte * blockWithMargin,byte *fullBordersArry,int VBx,int VBy,int totalVBCols,
-		int usedColsNoMar, int usedRowsNoMar, int totalCols,int totalRows)
+		int usedColsNoMar, int usedRowsNoMar, int totalCols,int totalRows, byte numberOfWarpsToUse)
 {
 
 	const int tx = threadIdx.x;
@@ -269,9 +268,9 @@ __forceinline__ __device__ void fillBorders(byte * blockWithMargin,byte *fullBor
 
 
 
-	
 
-	
+
+
 
 __forceinline__ __device__  void packer(byte* in, byte* out, int numUsedCols, int numUsedRows, int numTotalCols, int numTotalRows)
 {
@@ -385,7 +384,7 @@ __global__ void kernel(byte* input, byte* output,const int numberOfRows,const in
 	byte* in = input; //was d_
 	byte* out = output; // was d_
 
-	// DOR 0 - read from globla
+	// DOR 0 - read from global
 	{
 		int virtualGlobalBlockY = blockIdx.y + (blockIdx.x / numberOfVirtualBlockX);
 		int virtualGlobalBlockX = blockIdx.x % numberOfVirtualBlockX;
@@ -411,14 +410,17 @@ __global__ void kernel(byte* input, byte* output,const int numberOfRows,const in
 
 				{
 					if (threadIdx.y < usedRows) {
-						packer(nextWork,&packed__shared__[packedIndex*sizeOfPackedVB],usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y);
+						if ((threadIdx.y < usedRows) && (threadIdx.y < WARPS_FOR_PACKING))
+							packer(nextWork,&packed__shared__[packedIndex*sizeOfPackedVB],usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y);
+					}
 
+					if ((WARPS_FOR_PACKING <= threadIdx.y) && (threadIdx.y < (WARPS_FOR_PACKING + WARPS_FOR_BORDERS))) {
 						share2glob(nextWork,getBordersVBfromXY(bordersIn,virtualGlobalBlockX,virtualGlobalBlockY,numberOfVirtualBlockX,NUM_THREADS_X,NUM_THREADS_Y),
-								usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y);
+								usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,WARPS_FOR_BORDERS);
 					}
 				}
 
-				// TODO - this is not really needed..
+				// TODO - check if necessary
 				__syncthreads();
 
 				virtualGlobalBlockX += gridDimx;
@@ -434,8 +436,10 @@ __global__ void kernel(byte* input, byte* output,const int numberOfRows,const in
 		}
 	}
 
+	__syncthreads(); // tODO check if necessary
+
 	// this was once for k= iterations...
-	for (int k=0; k<iterations; k++) 
+	for (int k=0; k<iterations; k++)
 	{
 
 		int virtualGlobalBlockY = blockIdx.y + (blockIdx.x / numberOfVirtualBlockX);
@@ -455,7 +459,9 @@ __global__ void kernel(byte* input, byte* output,const int numberOfRows,const in
 
 					check(numberOfVirtualBlockX,numberOfVirtualBlockY,absGenLocInArray,blockGenerations,k);
 
-					fillBorders(currentWork,bordersIn,virtualGlobalBlockX,virtualGlobalBlockY,((numberOfCols+NUM_THREADS_X-1)/NUM_THREADS_X),usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y);
+					if (((WARPS_FOR_PACKING + WARPS_FOR_BORDERS) <= threadIdx.y) && (threadIdx.y < (WARPS_FOR_PACKING + WARPS_FOR_BORDERS + WARPS_FOR_BORDERS))) {
+						fillBorders(currentWork,bordersIn,virtualGlobalBlockX,virtualGlobalBlockY,((numberOfCols+NUM_THREADS_X-1)/NUM_THREADS_X),usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,WARPS_FOR_BORDERS);
+					}
 
 					unpacker(&packed__shared__[packedIndex*sizeOfPackedVB],currentWork,usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y);
 				}
@@ -475,11 +481,13 @@ __global__ void kernel(byte* input, byte* output,const int numberOfRows,const in
 				__syncthreads();
 
 				{
-					if (threadIdx.y < usedRows) {
+					if ((threadIdx.y < usedRows) && (threadIdx.y < WARPS_FOR_PACKING)) {
 						packer(nextWork,&packed__shared__[packedIndex*sizeOfPackedVB],usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y);
+					}
 
+					if ((WARPS_FOR_PACKING <= threadIdx.y) && (threadIdx.y < (WARPS_FOR_PACKING + WARPS_FOR_BORDERS))) {
 						share2glob(nextWork,getBordersVBfromXY(bordersOut,virtualGlobalBlockX,virtualGlobalBlockY,numberOfVirtualBlockX,NUM_THREADS_X,NUM_THREADS_Y),
-								usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y);
+								usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,WARPS_FOR_BORDERS);
 					}
 				}
 
@@ -538,6 +546,6 @@ __global__ void kernel(byte* input, byte* output,const int numberOfRows,const in
 
 			virtualGlobalBlockY += virtualGlobalBlockX / numberOfVirtualBlockX;
 			virtualGlobalBlockX = virtualGlobalBlockX % numberOfVirtualBlockX;
-		}   
+		}
 	}
 }
