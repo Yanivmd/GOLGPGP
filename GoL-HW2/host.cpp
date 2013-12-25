@@ -143,7 +143,7 @@ void kernel(byte* input, byte* output,const int numberOfRows,const int numberOfC
 							//}
 
 							share2glob(nextWork,getBordersVBfromXY(bordersIn,virtualGlobalBlockX,virtualGlobalBlockY,numberOfVirtualBlockX,NUM_THREADS_X,NUM_THREADS_Y),
-								usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,1,threadIdxx,threadIdxy);
+								usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,4,threadIdxx,threadIdxy);
 						}
 			
 						// this is not necessary on last iteration
@@ -196,7 +196,7 @@ void kernel(byte* input, byte* output,const int numberOfRows,const int numberOfC
 				int absRow = (virtualGlobalBlockY * NUM_THREADS_Y) + threadIdxy;
 				int absCol = (virtualGlobalBlockX * NUM_THREADS_X) + threadIdxx;
 
-				fillBorders(currentWork,bordersIn,virtualGlobalBlockX,virtualGlobalBlockY,((numberOfCols+NUM_THREADS_X-1)/NUM_THREADS_X),usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,2,threadIdxx,threadIdxy);
+				fillBorders(currentWork,bordersIn,virtualGlobalBlockX,virtualGlobalBlockY,((numberOfCols+NUM_THREADS_X-1)/NUM_THREADS_X),usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,4,threadIdxx,threadIdxy);
 
 				unpacker(&packed__shared__[packedIndex*sizeOfPackedVB],currentWork,usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,threadIdxx,threadIdxy);
 				}
@@ -240,7 +240,7 @@ void kernel(byte* input, byte* output,const int numberOfRows,const int numberOfC
 						//}
 
 						share2glob(nextWork,getBordersVBfromXY(bordersOut,virtualGlobalBlockX,virtualGlobalBlockY,numberOfVirtualBlockX,NUM_THREADS_X,NUM_THREADS_Y),
-							usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,1,threadIdxx,threadIdxy);
+							usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,4,threadIdxx,threadIdxy);
 					}
 				}
 			

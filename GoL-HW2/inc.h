@@ -3,10 +3,15 @@
 #define __INC__
 
 #include "FieldReader.h"
+#include "stdio.h"
+#include "assert.h"
+
+#include <iostream>
+#include <fstream>
 
 // CUDA runtime
 
-#define CUDA
+//#define CUDA
 
 #ifdef CUDA
 #include <cuda.h>
@@ -97,6 +102,8 @@ __forceinline__ __device__ void share2glob(byte * blockWithMargin,byte *BordersA
 #else
 
 #include "windows.h"
+
+
 
 using namespace std;
 
