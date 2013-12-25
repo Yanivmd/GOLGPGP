@@ -3,11 +3,6 @@
  Yaniv David, 301226817, yanivd@tx.technion.ac.il
 */
 
-#include <iostream>
-#include <fstream>
-#include <assert.h>
-
-
 #include "inc.h"
 
 
@@ -37,7 +32,7 @@ int writeBufToFile(std::string outfilename, std::string postfix, byte* buf, int 
     if (outf)
     {
         // print to file without a 1-wide margin
-        writeField(buf,fieldSizeX+2,fieldSizeY+2,1,outf); 
+        writeField(buf,fieldSizeX+2,fieldSizeY+2,1,outf);
         outf.close();
     }
 	return 0;
@@ -59,33 +54,6 @@ int cpuSim(int iterations, byte* ptr1, byte* ptr2, int fieldSizeX, int fieldSize
 	return 0;
 }
 
-
-
-int main2()
-{
-		byte input[] = {0,0,0,0,0,
-					0,1,0,1,0,
-					0,0,1,0,0,
-					0,1,0,1,0,
-					0,0,0,0,0,
-	};
-
-	byte expected[] = {0,0,0,0,0,
-					   0,0,1,0,0,
-					   0,1,0,1,0,
-					   0,0,1,0,0,
-					   0,0,0,0,0,
-	};
-
-	byte output[sizeof(input)/sizeof(byte)];
-	memset(output,0,sizeof(input)/sizeof(byte));
-
-
-	host(3,3,input,output,3);
-	int res= memcmp(output,expected,sizeof(expected)/sizeof(byte));
-	return res;
-}
-
 int main(int argc, char** argv)
 {
     //const int NUM_ARGS = 3;
@@ -101,15 +69,15 @@ int main(int argc, char** argv)
     //string infilename(argv[1]);
     //string outfilename(argv[2]);
     //int iterations = atoi(argv[3]);
-    
+
     string infilename("spaceship.lif");
     string outfilename("spaceship.lif.out");
-    int iterations = 1;
-  
+    int iterations = 3000;
+
     PatternBlock tblock;
     FieldReader reader;
-    int fieldSizeX = 140;       //<- FIELD_SIZE_X
-    int fieldSizeY = 70;        //<- FIELD_SIZE_Y
+    int fieldSizeX = 1000;       //<- FIELD_SIZE_X
+    int fieldSizeY = 1000;        //<- FIELD_SIZE_Y
 
     byte *cpuin = new byte[(fieldSizeY+2)*(fieldSizeX+2)];
     byte *gpuin = new byte[(fieldSizeY+2)*(fieldSizeX+2)];
@@ -118,13 +86,13 @@ int main(int argc, char** argv)
 
     assert(reader.readFile(infilename));
     assert(reader.buildField(cpuin,fieldSizeX+2,fieldSizeY+2)); //< leave dead margin
-    clearMargin(cpuin,fieldSizeX+2,fieldSizeY+2); 
+    clearMargin(cpuin,fieldSizeX+2,fieldSizeY+2);
     //writeField(in,fieldSizeX+2,fieldSizeY+2,0);
-    
-	memcpy(gpuin,cpuin,(fieldSizeY+2)*(fieldSizeX+2));
+
+//	memcpy(gpuin,cpuin,(fieldSizeY+2)*(fieldSizeX+2));
 	writeBufToFile(outfilename,"gpuin",gpuin,fieldSizeX,fieldSizeY);
-	host(fieldSizeX,fieldSizeY,gpuin,gpuout,iterations);
-	
+	host(fieldSizeX,fieldSizeY,cpuin,gpuout,iterations);
+
 	writeBufToFile(outfilename,"cpuin",cpuin,fieldSizeX,fieldSizeY);
     cpuSim(iterations,cpuin,cpuout,fieldSizeX,fieldSizeY);
     //writeField(ptr1,fieldSizeX+2,fieldSizeY+2,0,cout);  //< print to screen
@@ -150,9 +118,9 @@ int main(int argc, char** argv)
 		if (errors == 5)
 			break;
 	}
-	
+
 	if(errors > 0) {
-		std::cout << "Rrrors Detected" << "\n";		
+		std::cout << "Errors Detected" << "\n";
 	} else {
 		std::cout << "all good\n";
 	}
@@ -183,7 +151,7 @@ void writeField(byte* field, int sizeX, int sizeY, int marginSize,
 {
     // The field may contain a margin of dead cells that should not be printed.
     // If marginSize==0 then the entire field is printed.
-    int m = marginSize; 
+    int m = marginSize;
     outs << (sizeX-2*m) << " " << (sizeY-2*m) << std::endl;
     byte* ptr = field;
     ptr += m * sizeX;   //< skip top margin
