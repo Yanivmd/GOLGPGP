@@ -29,11 +29,11 @@ byte* host(int numberOfCols, int numberOfRows, byte* input, int iterations)
 		return input;
 	}
 
-	byte* output = NULL;
-
 	// globals on CPU
-	int *blockGenerations;
-	byte *bordersArray;
+	byte *h_in=NULL, *h_out=NULL;
+	int *h_blockGenerations=NULL;
+	byte *h_bordersArray = NULL;
+	byte *h_bordersArray2 = NULL;
 
 	// Globals on GPU
 	byte *d_in=NULL, *d_out=NULL;
@@ -41,38 +41,45 @@ byte* host(int numberOfCols, int numberOfRows, byte* input, int iterations)
 	byte *d_bordersArray = NULL;
 	byte *d_bordersArray2 = NULL;
 
+	// allocated memory
+	byte * d_mem = NULL;
+	byte * h_mem = NULL;
+
 	const int numberOfVirtualBlockY = (numberOfRows+NUM_THREADS_Y-1)/NUM_THREADS_Y;
 	const int numberOfVirtualBlockX = (numberOfCols+NUM_THREADS_X-1)/NUM_THREADS_X;
 
+	// memory block sizes
 	int numOfBlocks = (numberOfVirtualBlockY+GEN_MARGIN_SIZE)*(numberOfVirtualBlockX+GEN_MARGIN_SIZE);
-
-	checkCudaErrors(cudaMalloc((void**)&d_blockGenerations,numOfBlocks*sizeof(int)));
-	blockGenerations = new int[numOfBlocks];
-	std::fill_n(blockGenerations,numOfBlocks,1);
-	fillMargin(blockGenerations,numberOfVirtualBlockX+GEN_MARGIN_SIZE,numberOfVirtualBlockY+GEN_MARGIN_SIZE,iterations);
-
 	int sizeOfBordersAry = (numberOfVirtualBlockY+GEN_MARGIN_SIZE)*(numberOfVirtualBlockX+GEN_MARGIN_SIZE)*(NUM_THREADS_X*2+NUM_THREADS_Y*2);
-
-	checkCudaErrors(cudaMalloc((void**)&d_bordersArray,sizeOfBordersAry*sizeof(byte)));
-	checkCudaErrors(cudaMalloc((void**)&d_bordersArray2,sizeOfBordersAry*sizeof(byte)));
-	bordersArray = new byte[sizeOfBordersAry];
-	std::fill_n(bordersArray,sizeOfBordersAry,0);
-
-	checkCudaErrors(cudaMemcpy(d_blockGenerations, blockGenerations, numOfBlocks*sizeof(int), cudaMemcpyHostToDevice));
-
-	checkCudaErrors(cudaMemcpy(d_bordersArray, bordersArray, sizeOfBordersAry*sizeof(byte), cudaMemcpyHostToDevice));
-	checkCudaErrors(cudaMemcpy(d_bordersArray2, bordersArray, sizeOfBordersAry*sizeof(byte), cudaMemcpyHostToDevice));
-
-	// original stuff
 	int field_size = (numberOfCols+GLOBAL_MARGIN_SIZE)*(numberOfRows+GLOBAL_MARGIN_SIZE);
-	checkCudaErrors(cudaMalloc((void**)&d_in,field_size*sizeof(byte)));
-	checkCudaErrors(cudaMalloc((void**)&d_out,field_size*sizeof(byte)));
 
-	cudaMemset(d_out, 0, field_size); //TODO delete
-	checkCudaErrors(cudaMemcpy(d_in, input, field_size, cudaMemcpyHostToDevice));
+	int globalMemSize = (numOfBlocks*sizeof(int)) + (sizeOfBordersAry*sizeof(byte)) + (sizeOfBordersAry*sizeof(byte)) + (field_size*sizeof(byte));
+	checkCudaErrors(cudaMalloc((void**)&d_mem,globalMemSize + (field_size*sizeof(byte)))); //tried cudaMallocHost, but was not productive
+	h_mem = new byte[globalMemSize];
+
+	h_blockGenerations = (int*)h_mem;
+	h_bordersArray = ((byte*)h_blockGenerations) + (numOfBlocks*sizeof(int));
+	h_bordersArray2 = h_bordersArray + (sizeOfBordersAry*sizeof(byte));
+	h_in = h_bordersArray2 + (sizeOfBordersAry*sizeof(byte));
+
+	d_blockGenerations = (int*)d_mem;
+	d_bordersArray = ((byte*)d_blockGenerations) + (numOfBlocks*sizeof(int));
+	d_bordersArray2 = d_bordersArray + (sizeOfBordersAry*sizeof(byte));
+	d_in = d_bordersArray2 + (sizeOfBordersAry*sizeof(byte));
+	d_out = d_in + (field_size*sizeof(byte));
+
+	std::fill_n(h_blockGenerations,numOfBlocks,1);
+	fillMargin(h_blockGenerations,numberOfVirtualBlockX+GEN_MARGIN_SIZE,numberOfVirtualBlockY+GEN_MARGIN_SIZE,iterations);
+
+	std::fill_n(h_bordersArray,sizeOfBordersAry,0);
+	std::fill_n(h_bordersArray2,sizeOfBordersAry,0);
+
+	memcpy(h_in,input,field_size*sizeof(byte));
 
 	dim3 threads(NUM_THREADS_X,NUM_THREADS_Y);
 	dim3 grid(NUM_BLOCKS_X,1);
+
+	h_out = new byte[field_size*sizeof(byte)];
 
 #ifdef MEASUREMENTS
 	cudaEvent_t start,stop;
@@ -84,7 +91,11 @@ byte* host(int numberOfCols, int numberOfRows, byte* input, int iterations)
 	int iters=10;
 	for (int i=0; i<iters; i++) {
 #endif
+		checkCudaErrors(cudaMemcpy(d_mem, h_mem, globalMemSize, cudaMemcpyHostToDevice));
+
 		kernel<<<grid,threads>>>(d_in,d_out,numberOfRows,numberOfCols,numberOfVirtualBlockX,numberOfVirtualBlockY,iterations,d_bordersArray,d_bordersArray2,d_blockGenerations);
+
+		checkCudaErrors(cudaMemcpy(h_out, d_out, field_size, cudaMemcpyDeviceToHost));
 #ifdef MEASUREMENTS
 	}
 
@@ -95,21 +106,13 @@ byte* host(int numberOfCols, int numberOfRows, byte* input, int iterations)
 	checkCudaErrors(cudaEventElapsedTime(&msec, start, stop));
 	msec /= iters;
 
-	printf("%dx%d field size, %d generation, %f ms\n",numberOfCols,numberOfRows,iterations,msec);
+	printf("%dx%d field size, %d generations, %d iterations, %f ms\n",numberOfCols,numberOfRows,iterations,iters,msec);
 #endif
 
-	output = new byte[field_size*sizeof(byte)];
-	cudaMemcpy(output, d_out, field_size, cudaMemcpyDeviceToHost);
+	cudaFree(d_mem);
+	delete[] h_mem;
 
-	cudaFree(d_in);
-	cudaFree(d_out);
-	cudaFree(d_blockGenerations);
-	cudaFree(d_bordersArray);
-
-	delete[] bordersArray;
-	delete[] blockGenerations;
-
-	return output;
+	return h_out;
 }
 
 const int gridDimx = NUM_BLOCKS_X;
