@@ -3,7 +3,6 @@
 
 #ifndef CUDA
 
-//const int gridDimx = NUM_BLOCKS_X;
 const int gridDimy = NUM_BLOCKS_Y;
 const int gridDimx = NUM_BLOCKS_X;
 
@@ -64,6 +63,9 @@ byte packed__shared__[sizeOfPackedVB*totalVirtaulBlocksPerSM];
 
 // END OF COPY
 
+
+
+
 void kernel(byte* input, byte* output,const int numberOfRows,const int numberOfCols,
 	int numberOfVirtualBlockX, int numberOfVirtualBlockY,
 	int iterations)
@@ -92,8 +94,9 @@ void kernel(byte* input, byte* output,const int numberOfRows,const int numberOfC
 	for (int blockIdxx=0;blockIdxx<NUM_BLOCKS_X;blockIdxx++)
 		for (int blockIdxy=0;blockIdxy<NUM_BLOCKS_Y;blockIdxy++)
 	{
-		int virtualGlobalBlockY = blockIdxy + (blockIdxx / numberOfVirtualBlockX);
-		int virtualGlobalBlockX = blockIdxx % numberOfVirtualBlockX;
+		int virtualGlobalBlockY; //= blockIdxy + (blockIdxx / numberOfVirtualBlockX);
+		int virtualGlobalBlockX; //= blockIdxx % numberOfVirtualBlockX;
+		getInitialVBValue(blockIdxx,blockIdxy,gridDimx,gridDimy,numberOfVirtualBlockX,numberOfVirtualBlockY,&virtualGlobalBlockX,&virtualGlobalBlockY);
 
 		int packedIndex = 0;
 		//byte *ptr2MySharedBlock = currentWork;
@@ -141,9 +144,12 @@ void kernel(byte* input, byte* output,const int numberOfRows,const int numberOfC
 							//if ((absRow < numberOfRows) && (absCol < numberOfCols)) {
 								packer(nextWork,&packed__shared__[packedIndex*sizeOfPackedVB],usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,threadIdxx,threadIdxy);
 							//}
-
+							#ifdef SCATTER_BORDERS
+							share2glob(nextWork,bordersIn,usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,4,virtualGlobalBlockX,virtualGlobalBlockY,numberOfVirtualBlockX,threadIdxx,threadIdxy);
+							#else
 							share2glob(nextWork,getBordersVBfromXY(bordersIn,virtualGlobalBlockX,virtualGlobalBlockY,numberOfVirtualBlockX,NUM_THREADS_X,NUM_THREADS_Y),
 								usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,4,threadIdxx,threadIdxy);
+							#endif
 						}
 			
 						// this is not necessary on last iteration
@@ -153,7 +159,8 @@ void kernel(byte* input, byte* output,const int numberOfRows,const int numberOfC
 					}
 
 
-				virtualGlobalBlockX += gridDimx;
+				//virtualGlobalBlockX += gridDimx;
+				getNextVBValue(blockIdxx,blockIdxy,gridDimx,gridDimy,numberOfVirtualBlockX,numberOfVirtualBlockY,&virtualGlobalBlockX,&virtualGlobalBlockY);
 				packedIndex +=1;
 
 				byte* tmp = nextWork;
@@ -161,8 +168,9 @@ void kernel(byte* input, byte* output,const int numberOfRows,const int numberOfC
 				currentWork=tmp;
 			}
 
-			virtualGlobalBlockY += virtualGlobalBlockX / numberOfVirtualBlockX;
-			virtualGlobalBlockX = virtualGlobalBlockX % numberOfVirtualBlockX;
+			AdjustVBValue(blockIdxx,blockIdxy,gridDimx,gridDimy,numberOfVirtualBlockX,numberOfVirtualBlockY,&virtualGlobalBlockX,&virtualGlobalBlockY);
+			//virtualGlobalBlockY += virtualGlobalBlockX / numberOfVirtualBlockX;
+			//virtualGlobalBlockX = virtualGlobalBlockX % numberOfVirtualBlockX;
 		}
 	}
 	//
@@ -196,7 +204,13 @@ void kernel(byte* input, byte* output,const int numberOfRows,const int numberOfC
 				int absRow = (virtualGlobalBlockY * NUM_THREADS_Y) + threadIdxy;
 				int absCol = (virtualGlobalBlockX * NUM_THREADS_X) + threadIdxx;
 
+				#ifdef SCATTER_BORDERS
+				//
+				fillBorders(currentWork,virtualGlobalBlockX,virtualGlobalBlockY,((numberOfCols+NUM_THREADS_X-1)/NUM_THREADS_X),usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,4,getBordersVBfromXY(bordersIn,virtualGlobalBlockX,virtualGlobalBlockY,numberOfVirtualBlockX,NUM_THREADS_X,NUM_THREADS_Y),threadIdxx,threadIdxy);
+				#else
+
 				fillBorders(currentWork,bordersIn,virtualGlobalBlockX,virtualGlobalBlockY,((numberOfCols+NUM_THREADS_X-1)/NUM_THREADS_X),usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,4,threadIdxx,threadIdxy);
+				#endif
 
 				unpacker(&packed__shared__[packedIndex*sizeOfPackedVB],currentWork,usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,threadIdxx,threadIdxy);
 				}
@@ -238,9 +252,12 @@ void kernel(byte* input, byte* output,const int numberOfRows,const int numberOfC
 						//if ((absRow < numberOfRows) && (absCol < numberOfCols)) {
 							packer(nextWork,&packed__shared__[packedIndex*sizeOfPackedVB],usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,threadIdxx,threadIdxy);
 						//}
-
+						#ifdef SCATTER_BORDERS
+							share2glob(nextWork,bordersOut,usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,4,virtualGlobalBlockX,virtualGlobalBlockY,numberOfVirtualBlockX,threadIdxx,threadIdxy);
+						#else
 						share2glob(nextWork,getBordersVBfromXY(bordersOut,virtualGlobalBlockX,virtualGlobalBlockY,numberOfVirtualBlockX,NUM_THREADS_X,NUM_THREADS_Y),
 							usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,4,threadIdxx,threadIdxy);
+						#endif
 					}
 				}
 			

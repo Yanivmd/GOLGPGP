@@ -152,70 +152,7 @@ int fillTester(int sizeX, int sizeY, byte* input, byte* output, int iterations, 
 #include "inc.h"
 
 #ifndef CUDA
-/*
-// only one warp will work on this...make it work hard! , ty=CONST, tx=0..31 (%?)
-void share2glob(byte * blockWithMargin,byte *BordersAryPlace,int usedColsNoMar, int usedRowsNoMar, int totalCols,int totalRows,int tx, int ty)
-{
-	byte *row2Fill;
-	int writeIndex;
 
-	int dev4 = tx / 8;
-	int dev8 = tx % 8;
-
-	if (dev4 == 0)
-	{
-		// copy border UP
-		row2Fill = getUPBorder(BordersAryPlace,totalCols,totalRows);
-		writeIndex = dev8;
-		for (int row=1;row<=1;row++)
-		{
-			for (int col=1+dev8;col<=usedColsNoMar;col+=8)
-			{
-				row2Fill[writeIndex] = blockWithMargin[row * (totalCols) + col];
-				writeIndex +=8;
-			}
-		}
-	} else if (dev4 == 1)	{
-		// copy border Down
-		row2Fill = getDOWNBorder(BordersAryPlace,totalCols,totalRows);
-		writeIndex = dev8;
-		for (int row=1+usedRowsNoMar-1;row<=1+usedRowsNoMar-1;row++)
-		{
-			for (int col=1+dev8;col<=usedColsNoMar;col+=8)
-			{	
-				row2Fill[writeIndex] = blockWithMargin[row * (totalCols) + col];
-				writeIndex +=8;
-			}
-		}
-	} else if (dev4==2) {
-		// copy border LEFT
-		row2Fill = getLEFTBorder(BordersAryPlace,totalCols,totalRows);
-		writeIndex = dev8;
-		for (int row=1 +dev8;row<=usedRowsNoMar;row+=8)
-		{	
-			for (int col=1;col<=1;col++)
-			{
-				// move past margin, then skip n rows...
-				row2Fill[writeIndex] = blockWithMargin[row * (totalCols) + col];
-				writeIndex +=8;
-			}
-		}
-	} else if (dev4==3)	{
-		// copy border Right
-		row2Fill = getRIGHTBorder(BordersAryPlace,totalCols,totalRows);
-		writeIndex = dev8;
-		for (int row=1 + +dev8;row<=usedRowsNoMar;row+=8)
-		{	
-			for (int col=usedColsNoMar;col<=usedColsNoMar;col++)
-			{
-				// move past margin, then skip n rows...
-				row2Fill[writeIndex] = blockWithMargin[row * (totalCols) + col];
-				writeIndex +=8;
-			}
-		}
-	}
-}
-*/
 
 void share2glob(byte * blockWithMargin,byte *BordersAryPlace,int usedColsNoMar, int usedRowsNoMar, int totalCols,int totalRows,int numberOfWarpsToUse,int tx, int ty)
 {

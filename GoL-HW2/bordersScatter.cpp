@@ -104,7 +104,6 @@ int tx,int ty)
 #endif
 {
 	#ifdef CUDA
-	__forceinline__ __device__
 	const int tx = ThreadIdx.x;
 	const int ty = ThreadIdx.y;
 	#endif
@@ -113,62 +112,48 @@ int tx,int ty)
 	const int totalRowsWithMar = totalRows + MARGIN_SIZE_ROWS;
 	byte* borderPtr;
 
-	if (ty % numberOfWarpsToUse == (0 % numberOfWarpsToUse))
-	{
+	
+	byte * UP = getDOWNBorder(getBordersVBfromXY(fullBordersArry,VBx-1,VBy-1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
+	byte * UP = getDOWNBorder(getBordersVBfromXY(fullBordersArry,VBx-1,VBy-1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
+	byte * UP = getDOWNBorder(getBordersVBfromXY(fullBordersArry,VBx-1,VBy-1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
+	
+	byte * workingVB;
+
+
+	
 	// LEFT UP
-		borderPtr = getDOWNBorder(getBordersVBfromXY(fullBordersArry,VBx-1,VBy-1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
-		borderPtr[totalCols-1] = blockWithMargin[0*totalColsWithMar+0]; // -1 , cuz 0 based. (no margin!!!)
+	
+		// this will be pushed to first in left, and first in down
+		workingVB = getBordersVBfromXY(fullBordersArry,VBx-1,VBy-1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
+		
+		byte * right = getLEFTBorder(workingVB,totalCols,totalRows);
+		byte * up = getUPBorder(workingVB,totalCols,totalRows);
+		left[0] 
+
 
 	// UP
-		borderPtr = getDOWNBorder(getBordersVBfromXY(fullBordersArry,VBx,VBy-1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
-		for (int col=1+tx;col<totalColsWithMar-(MARGIN_SIZE_COLS-2)-1;col+=32)
-		{
-			borderPtr[col-1] = blockWithMargin[0*totalColsWithMar+col];
-		}
-	}
+		
+	
 
-	if (ty % numberOfWarpsToUse ==(1 % numberOfWarpsToUse))
-	{
+	
 	// RIGHT UP
-		borderPtr = getDOWNBorder(getBordersVBfromXY(fullBordersArry,VBx+1,VBy-1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
-		borderPtr[0] = blockWithMargin[0*totalColsWithMar + (usedColsNoMar+1)]; 
-
+	
 	// LEFT
-		byte * ptr1 = getBordersVBfromXY(fullBordersArry,VBx-1,VBy,totalVBCols,totalCols,totalRows);
-		borderPtr = getRIGHTBorder(ptr1,totalCols,totalRows);
-		for (int row=1+tx;row<totalRowsWithMar-(MARGIN_SIZE_ROWS-2)-1 ;row+=32)
-		{
-			borderPtr[row-1] = blockWithMargin[row*totalColsWithMar + 0];
-		}
-	}
+	
 
-	if (ty % numberOfWarpsToUse ==(2 % numberOfWarpsToUse))
-	{
+	
 	// RIGHT
-		byte * ptr2 = getBordersVBfromXY(fullBordersArry,VBx+1,VBy,totalVBCols,totalCols,totalRows);
-		borderPtr = getLEFTBorder(ptr2,totalCols,totalRows);
-		for (int row=1+tx;row<totalRowsWithMar-(MARGIN_SIZE_ROWS-2) -1 ;row+=32)
-		{
-			borderPtr[row-1] = blockWithMargin[row*totalColsWithMar + (usedColsNoMar+1)];
-		}
+	
 
 	// DOWN LEFT
-		borderPtr = getUPBorder(getBordersVBfromXY(fullBordersArry,VBx-1,VBy+1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
-		borderPtr[totalCols-1] = blockWithMargin[(usedRowsNoMar +1) * totalColsWithMar + 0]; // -1 cuz 0 based  . (no margin!!!)
-	}
-	if (ty % numberOfWarpsToUse ==(3 % numberOfWarpsToUse))
-	{
+	
+
+	
 	// DOWN
-		borderPtr = getUPBorder(getBordersVBfromXY(fullBordersArry,VBx,VBy+1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
-		for (int col=1+tx;col<=totalColsWithMar-MARGIN_SIZE_COLS;col+=32)
-		{
-			borderPtr[col-1] = blockWithMargin[(usedRowsNoMar +1)*totalColsWithMar+col];
-		}
+	
 
 	// DOWN RIGHT
-		borderPtr = getUPBorder(getBordersVBfromXY(fullBordersArry,VBx+1,VBy+1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
-		borderPtr[0] = blockWithMargin[(usedRowsNoMar +1) * totalColsWithMar + (usedColsNoMar+1)]; 
-	}
+	
 
 }
 #endif

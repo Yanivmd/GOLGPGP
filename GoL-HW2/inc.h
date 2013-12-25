@@ -13,6 +13,8 @@
 
 //#define CUDA
 
+//#define SCATTER_BORDERS
+
 #ifdef CUDA
 #include <cuda.h>
 #include <cuda_runtime.h>
@@ -157,22 +159,77 @@ inline byte * getRIGHTBorder(byte * BordersAryPlace,int totalCols,int totalRows)
 }
 
 
+#ifdef SCATTER_BORDERS
+void fillBorders(byte * blockWithMargin,int VBx,int VBy,int totalVBCols,
+	int usedColsNoMar, int usedRowsNoMar, int totalCols,int totalRows,int numberOfWarpsToUse,byte *BordersAryPlace,int tx,int ty);
+void share2glob(byte * blockWithMargin,byte *fullBordersArry,int usedColsNoMar, int usedRowsNoMar, int totalCols,int totalRows,int numberOfWarpsToUse,
+												int VBx,int VBy,int totalVBCols,int tx,int ty);
+#else
 void fillBorders(byte * blockWithMargin,byte *fullBordersArry,int VBx,int VBy,int totalVBCols,
 	int usedColsNoMar, int usedRowsNoMar, int totalCols,int totalRows,int numberOfWarpsToUse,int tx,int ty);
+void share2glob(byte * blockWithMargin,byte *BordersAryPlace,int usedColsNoMar, int usedRowsNoMar, int totalCols,int totalRows,int numberOfWarpsToUse,int tx, int ty);
+#endif
 
 void packer(byte* in, byte* out, int numUsedCols, int numUsedRows, int numTotalCols, int numTotalRows, int tx, int ty);
 void unpacker(byte* in, byte* out, int numUsedCols, int numUsedRows, int numTotalCols, int numTotalRows, int tx, int ty);
 
 void eval(byte * srcBlockWithMargin,byte * tarBlockWithMargin,int NumberOfColsNoMar, int NumberOfRowsNoMar,int tx, int ty);
 
-// TODO: make sure that totalVBCols includes the margin, so these calculations are ok.
+
 inline byte* getBordersVBfromXY(byte *fullBordersArry,int VBx,int VBy,int totalVBCols,int totalCols,int totalRows)
 {
 	// ajust to margin 
 	return &(fullBordersArry[((VBy+1)*(totalVBCols+VB_MARGIN_SIZE)+VBx+1)*  (   (totalCols)  *2 +  (totalRows)*2  )  ]);
 }
 
-void share2glob(byte * blockWithMargin,byte *BordersAryPlace,int usedColsNoMar, int usedRowsNoMar, int totalCols,int totalRows,int numberOfWarpsToUse,int tx, int ty);
+/*
+inline void getInitialVBValue(int blockIdxx, int blockIdxy,int gridDimx,int gridDimy,int numberOfVirtualBlockX,int numberOfVirtualBlockY, int * virtualGlobalBlockX,int * virtualGlobalBlockY)
+{
+	*virtualGlobalBlockY = blockIdxy + (blockIdxx / numberOfVirtualBlockX);
+	*virtualGlobalBlockX = blockIdxx % numberOfVirtualBlockX;
+}
+
+inline void getNextVBValue(int blockIdxx, int blockIdxy,int gridDimx,int gridDimy,int numberOfVirtualBlockX,int numberOfVirtualBlockY, int * virtualGlobalBlockX,int * virtualGlobalBlockY)
+{
+	*virtualGlobalBlockX += gridDimx;
+}
+
+inline void AdjustVBValue(int blockIdxx, int blockIdxy,int gridDimx,int gridDimy,int numberOfVirtualBlockX,int numberOfVirtualBlockY, int * virtualGlobalBlockX,int * virtualGlobalBlockY)
+{
+	*virtualGlobalBlockY += *virtualGlobalBlockX / numberOfVirtualBlockX;
+	*virtualGlobalBlockX = *virtualGlobalBlockX % numberOfVirtualBlockX;
+}
+*/
+
+
+const int ROWS_PER_BLOCK= 1000/NUM_BLOCKS_X;
+
+inline void getInitialVBValue(int blockIdxx, int blockIdxy,int gridDimx,int gridDimy,int numberOfVirtualBlockX,int numberOfVirtualBlockY, int * virtualGlobalBlockX,int * virtualGlobalBlockY)
+{
+	*virtualGlobalBlockY = ROWS_PER_BLOCK * blockIdxx;
+	*virtualGlobalBlockX = 0;
+}
+
+inline void getNextVBValue(int blockIdxx, int blockIdxy,int gridDimx,int gridDimy,int numberOfVirtualBlockX,int numberOfVirtualBlockY, int * virtualGlobalBlockX,int * virtualGlobalBlockY)
+{
+	*virtualGlobalBlockX += gridDimx;
+}
+
+inline void AdjustVBValue(int blockIdxx, int blockIdxy,int gridDimx,int gridDimy,int numberOfVirtualBlockX,int numberOfVirtualBlockY, int * virtualGlobalBlockX,int * virtualGlobalBlockY)
+{
+	*virtualGlobalBlockY += *virtualGlobalBlockX / numberOfVirtualBlockX;
+	if (*virtualGlobalBlockY == ROWS_PER_BLOCK * (blockIdxx+1))
+	{
+		*virtualGlobalBlockY = numberOfVirtualBlockY;
+		*virtualGlobalBlockX = numberOfVirtualBlockX;
+	}
+	else
+	{
+		*virtualGlobalBlockX = *virtualGlobalBlockX % numberOfVirtualBlockX;
+	}
+}
+
+
 
 #endif
 
