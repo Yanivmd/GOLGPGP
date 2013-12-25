@@ -23,8 +23,14 @@ void fillMargin(int* field, int sizeX, int sizeY,int val)
 	std::fill_n(&field[sizeX*(sizeY-1)],sizeX,val);
 }
 
-int host(int numberOfCols, int numberOfRows, byte* input, byte* output, int iterations)
+byte* host(int numberOfCols, int numberOfRows, byte* input, int iterations)
 {
+	if (iterations == 0) {
+		return input;
+	}
+
+	byte* output = NULL;
+
 	// globals on CPU
 	int *blockGenerations;
 	byte *bordersArray;
@@ -42,7 +48,7 @@ int host(int numberOfCols, int numberOfRows, byte* input, byte* output, int iter
 
 	checkCudaErrors(cudaMalloc((void**)&d_blockGenerations,numOfBlocks*sizeof(int)));
 	blockGenerations = new int[numOfBlocks];
-	std::fill_n(blockGenerations,numOfBlocks,0);
+	std::fill_n(blockGenerations,numOfBlocks,1);
 	fillMargin(blockGenerations,numberOfVirtualBlockX+GEN_MARGIN_SIZE,numberOfVirtualBlockY+GEN_MARGIN_SIZE,iterations);
 
 	int sizeOfBordersAry = (numberOfVirtualBlockY+GEN_MARGIN_SIZE)*(numberOfVirtualBlockX+GEN_MARGIN_SIZE)*(NUM_THREADS_X*2+NUM_THREADS_Y*2);
@@ -65,31 +71,35 @@ int host(int numberOfCols, int numberOfRows, byte* input, byte* output, int iter
 	cudaMemset(d_out, 0, field_size); //TODO delete
 	checkCudaErrors(cudaMemcpy(d_in, input, field_size, cudaMemcpyHostToDevice));
 
-	cudaEvent_t start,stop;
-    checkCudaErrors(cudaEventCreate(&start));
-    checkCudaErrors(cudaEventCreate(&stop));
-
 	dim3 threads(NUM_THREADS_X,NUM_THREADS_Y);
-	dim3 grid(NUM_BLOCKS_X,NUM_BLOCKS_Y);
+	dim3 grid(NUM_BLOCKS_X,1);
+
+#ifdef MEASUREMENTS
+	cudaEvent_t start,stop;
+	checkCudaErrors(cudaEventCreate(&start));
+	checkCudaErrors(cudaEventCreate(&stop));
 
 	checkCudaErrors(cudaEventRecord(start, NULL));
 
 	int iters=10;
 	for (int i=0; i<iters; i++) {
+#endif
 		kernel<<<grid,threads>>>(d_in,d_out,numberOfRows,numberOfCols,numberOfVirtualBlockX,numberOfVirtualBlockY,iterations,d_bordersArray,d_bordersArray2,d_blockGenerations);
+#ifdef MEASUREMENTS
 	}
 
 	checkCudaErrors(cudaEventRecord(stop, NULL));
-    checkCudaErrors(cudaEventSynchronize(stop));
+	checkCudaErrors(cudaEventSynchronize(stop));
 
+	float msec = 0.0f;
+	checkCudaErrors(cudaEventElapsedTime(&msec, start, stop));
+	msec /= iters;
+
+	printf("%dx%d field size, %d generation, %f ms\n",numberOfCols,numberOfRows,iterations,msec);
+#endif
+
+	output = new byte[field_size*sizeof(byte)];
 	cudaMemcpy(output, d_out, field_size, cudaMemcpyDeviceToHost);
-	cudaMemcpy(input, d_in, field_size, cudaMemcpyDeviceToHost);
-
-    float msec = 0.0f;
-    checkCudaErrors(cudaEventElapsedTime(&msec, start, stop));
-    msec /= iters;
-
-    printf("%dx%d field size, %d generation, %f ms\n",numberOfCols,numberOfRows,iterations,msec);
 
 	cudaFree(d_in);
 	cudaFree(d_out);
@@ -99,7 +109,7 @@ int host(int numberOfCols, int numberOfRows, byte* input, byte* output, int iter
 	delete[] bordersArray;
 	delete[] blockGenerations;
 
-	return 0;
+	return output;
 }
 
 const int gridDimx = NUM_BLOCKS_X;
@@ -210,11 +220,11 @@ __forceinline__ __device__ void fillBorders(byte * blockWithMargin,byte *fullBor
 
 	if (ty % numberOfWarpsToUse == (0 % numberOfWarpsToUse))
 	{
-	// LEFT UP
+		// LEFT UP
 		borderPtr = getDOWNBorder(getBordersVBfromXY(fullBordersArry,VBx-1,VBy-1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
 		blockWithMargin[0*totalColsWithMar+0] = borderPtr[totalCols-1]; // -1 , cuz 0 based. (no margin!!!)
 
-	// UP
+		// UP
 		borderPtr = getDOWNBorder(getBordersVBfromXY(fullBordersArry,VBx,VBy-1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
 		for (int col=1+tx;col<totalColsWithMar-(MARGIN_SIZE_COLS-2)-1;col+=32)
 		{
@@ -224,11 +234,11 @@ __forceinline__ __device__ void fillBorders(byte * blockWithMargin,byte *fullBor
 
 	if (ty % numberOfWarpsToUse ==(1 % numberOfWarpsToUse))
 	{
-	// RIGHT UP
+		// RIGHT UP
 		borderPtr = getDOWNBorder(getBordersVBfromXY(fullBordersArry,VBx+1,VBy-1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
 		blockWithMargin[0*totalColsWithMar + (usedColsNoMar+1)] = borderPtr[0]; 
 
-	// LEFT
+		// LEFT
 		byte * ptr1 = getBordersVBfromXY(fullBordersArry,VBx-1,VBy,totalVBCols,totalCols,totalRows);
 		borderPtr = getRIGHTBorder(ptr1,totalCols,totalRows);
 		for (int row=1+tx;row<totalRowsWithMar-(MARGIN_SIZE_ROWS-2)-1 ;row+=32)
@@ -239,7 +249,7 @@ __forceinline__ __device__ void fillBorders(byte * blockWithMargin,byte *fullBor
 
 	if (ty % numberOfWarpsToUse ==(2 % numberOfWarpsToUse))
 	{
-	// RIGHT
+		// RIGHT
 		byte * ptr2 = getBordersVBfromXY(fullBordersArry,VBx+1,VBy,totalVBCols,totalCols,totalRows);
 		borderPtr = getLEFTBorder(ptr2,totalCols,totalRows);
 		for (int row=1+tx;row<totalRowsWithMar-(MARGIN_SIZE_ROWS-2) -1 ;row+=32)
@@ -247,20 +257,20 @@ __forceinline__ __device__ void fillBorders(byte * blockWithMargin,byte *fullBor
 			blockWithMargin[row*totalColsWithMar + (usedColsNoMar+1)] = borderPtr[row-1];
 		}
 
-	// DOWN LEFT
+		// DOWN LEFT
 		borderPtr = getUPBorder(getBordersVBfromXY(fullBordersArry,VBx-1,VBy+1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
 		blockWithMargin[(usedRowsNoMar +1) * totalColsWithMar + 0] = borderPtr[totalCols-1]; // -1 cuz 0 based  . (no margin!!!)
 	}
 	if (ty % numberOfWarpsToUse ==(3 % numberOfWarpsToUse))
 	{
-	// DOWN
+		// DOWN
 		borderPtr = getUPBorder(getBordersVBfromXY(fullBordersArry,VBx,VBy+1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
 		for (int col=1+tx;col<=totalColsWithMar-MARGIN_SIZE_COLS;col+=32)
 		{
 			blockWithMargin[(usedRowsNoMar +1)*totalColsWithMar+col] = borderPtr[col-1];
 		}
 
-	// DOWN RIGHT
+		// DOWN RIGHT
 		borderPtr = getUPBorder(getBordersVBfromXY(fullBordersArry,VBx+1,VBy+1,totalVBCols,totalCols,totalRows),totalCols,totalRows);
 		blockWithMargin[(usedRowsNoMar +1) * totalColsWithMar + (usedColsNoMar+1)] = borderPtr[0]; 
 	}
@@ -310,7 +320,9 @@ __forceinline__ __device__  void unpacker(byte* in, byte* out, int numUsedCols, 
 __forceinline__ __device__ void check(int numberOfVirtualBlockX,int numberOfVirtualBlockY, int absGenLocInArray,int * blockGenerations,int k)
 {
 	__threadfence_system();
+#pragma unroll
 	for (int i=-1; i<=1; i++) {
+#pragma unroll
 		for (int j=-1; j<=1; j++) {
 			int genIndex = (i * numberOfVirtualBlockX) + j + absGenLocInArray;
 			if ((genIndex >= 0) && (genIndex < (numberOfVirtualBlockX * numberOfVirtualBlockY)))
@@ -385,61 +397,85 @@ __global__ void kernel(byte* input, byte* output,const int numberOfRows,const in
 	byte* out = output; // was d_
 
 	// DOR 0 - read from global
-	{
-		int virtualGlobalBlockY = blockIdx.y + (blockIdx.x / numberOfVirtualBlockX);
-		int virtualGlobalBlockX = blockIdx.x % numberOfVirtualBlockX;
+	int virtualGlobalBlockY = blockIdx.y + (blockIdx.x / numberOfVirtualBlockX);
+	int virtualGlobalBlockX = blockIdx.x % numberOfVirtualBlockX;
 
-		int packedIndex = 0;
+	int packedIndex = 0;
 
-		while (virtualGlobalBlockY < numberOfVirtualBlockY) {
-			while (virtualGlobalBlockX < numberOfVirtualBlockX) {
+	while (virtualGlobalBlockY < numberOfVirtualBlockY) {
+		while (virtualGlobalBlockX < numberOfVirtualBlockX) {
 
-				int usedCols = min(NUM_THREADS_X,numberOfCols-(virtualGlobalBlockX * NUM_THREADS_X));
-				int usedRows = min(NUM_THREADS_Y,numberOfRows-(virtualGlobalBlockY * NUM_THREADS_Y));
+			int usedCols = min(NUM_THREADS_X,numberOfCols-(virtualGlobalBlockX * NUM_THREADS_X));
+			int usedRows = min(NUM_THREADS_Y,numberOfRows-(virtualGlobalBlockY * NUM_THREADS_Y));
 
-				{
+			int absRow = (virtualGlobalBlockY * NUM_THREADS_Y) + threadIdx.y;
+			int absCol = (virtualGlobalBlockX * NUM_THREADS_X) + threadIdx.x;
 
-					int absRow = (virtualGlobalBlockY * NUM_THREADS_Y) + threadIdx.y;
-					int absCol = (virtualGlobalBlockX * NUM_THREADS_X) + threadIdx.x;
+			if ((absRow < numberOfRows) && (absCol < numberOfCols)) {
+				int numberOfColsWithMar = numberOfCols+GLOBAL_MARGIN_SIZE;
+				byte *ptr = &(in[(absRow+1)*(numberOfCols+GLOBAL_MARGIN_SIZE)+absCol+1]);
+				byte *out = &(nextWork[(threadIdx.y+1)*(NUM_THREADS_X+MARGIN_SIZE_COLS)+threadIdx.x+1]);
+				int neighbors = 0;
 
-					if ((absRow < numberOfRows) && (absCol < numberOfCols)) {
-						nextWork[(threadIdx.y+1)*(NUM_THREADS_X+MARGIN_SIZE_COLS)+threadIdx.x+1] = in[(absRow+1)*(numberOfCols+GLOBAL_MARGIN_SIZE)+absCol+1];
-					}
+				neighbors += ptr[-1 * numberOfColsWithMar + -1];
+				neighbors += ptr[-1 * numberOfColsWithMar +  0];
+				neighbors += ptr[-1 * numberOfColsWithMar +  1];
+				neighbors += ptr[ 0 * numberOfColsWithMar + -1];
+				neighbors += ptr[ 0 * numberOfColsWithMar +  1];
+				neighbors += ptr[ 1 * numberOfColsWithMar + -1];
+				neighbors += ptr[ 1 * numberOfColsWithMar +  0];
+				neighbors += ptr[ 1 * numberOfColsWithMar +  1];
+
+				if (neighbors == 3 ||
+						(ptr[0] == ALIVE && neighbors == 2) ) {
+					*out = ALIVE;
 				}
-				__syncthreads();
-
-				{
-					if (threadIdx.y < usedRows) {
-						if ((threadIdx.y < usedRows) && (threadIdx.y < WARPS_FOR_PACKING))
-							packer(nextWork,&packed__shared__[packedIndex*sizeOfPackedVB],usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y);
-					}
-
-					if ((WARPS_FOR_PACKING <= threadIdx.y) && (threadIdx.y < (WARPS_FOR_PACKING + WARPS_FOR_BORDERS))) {
-						share2glob(nextWork,getBordersVBfromXY(bordersIn,virtualGlobalBlockX,virtualGlobalBlockY,numberOfVirtualBlockX,NUM_THREADS_X,NUM_THREADS_Y),
-								usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,WARPS_FOR_BORDERS);
-					}
+				else {
+					*out = DEAD;
 				}
-
-				// TODO - check if necessary
-				__syncthreads();
-
-				virtualGlobalBlockX += gridDimx;
-				packedIndex +=1;
-
-				byte* tmp = nextWork;
-				nextWork=currentWork;
-				currentWork=tmp;
 			}
 
-			virtualGlobalBlockY += virtualGlobalBlockX / numberOfVirtualBlockX;
-			virtualGlobalBlockX = virtualGlobalBlockX % numberOfVirtualBlockX;
+			__syncthreads();
+
+			if (iterations==1) {
+				if ((absRow < numberOfRows) && (absCol < numberOfCols)) {
+					out[(absRow+1)*(numberOfCols+GLOBAL_MARGIN_SIZE)+absCol+1] = nextWork[(threadIdx.y+1)*(NUM_THREADS_X+MARGIN_SIZE_COLS)+threadIdx.x+1];
+				}
+			} else {
+				if (threadIdx.y < usedRows) {
+					if ((threadIdx.y < usedRows) && (threadIdx.y < WARPS_FOR_PACKING))
+						packer(nextWork,&packed__shared__[packedIndex*sizeOfPackedVB],usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y);
+				}
+
+				if ((WARPS_FOR_PACKING <= threadIdx.y) && (threadIdx.y < (WARPS_FOR_PACKING + WARPS_FOR_BORDERS))) {
+					share2glob(nextWork,getBordersVBfromXY(bordersIn,virtualGlobalBlockX,virtualGlobalBlockY,numberOfVirtualBlockX,NUM_THREADS_X,NUM_THREADS_Y),
+							usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,WARPS_FOR_BORDERS);
+				}
+			}
+
+			// TODO - check if necessary
+			__syncthreads();
+
+			virtualGlobalBlockX += gridDimx;
+			packedIndex +=1;
+
+			byte* tmp = nextWork;
+			nextWork=currentWork;
+			currentWork=tmp;
 		}
+
+		virtualGlobalBlockY += virtualGlobalBlockX / numberOfVirtualBlockX;
+		virtualGlobalBlockX = virtualGlobalBlockX % numberOfVirtualBlockX;
+	}
+
+	if (iterations == 1) {
+		return;
 	}
 
 	__syncthreads(); // tODO check if necessary
 
 	// this was once for k= iterations...
-	for (int k=0; k<iterations; k++)
+	for (int k=1; k<iterations-1; k++)
 	{
 
 		int virtualGlobalBlockY = blockIdx.y + (blockIdx.x / numberOfVirtualBlockX);
@@ -454,42 +490,36 @@ __global__ void kernel(byte* input, byte* output,const int numberOfRows,const in
 				int usedCols = min(NUM_THREADS_X,numberOfCols-(virtualGlobalBlockX * NUM_THREADS_X));
 				int usedRows = min(NUM_THREADS_Y,numberOfRows-(virtualGlobalBlockY * NUM_THREADS_Y));
 
+				check(numberOfVirtualBlockX,numberOfVirtualBlockY,absGenLocInArray,blockGenerations,k);
 
-				{
-
-					check(numberOfVirtualBlockX,numberOfVirtualBlockY,absGenLocInArray,blockGenerations,k);
-
-					if (((WARPS_FOR_PACKING + WARPS_FOR_BORDERS) <= threadIdx.y) && (threadIdx.y < (WARPS_FOR_PACKING + WARPS_FOR_BORDERS + WARPS_FOR_BORDERS))) {
-						fillBorders(currentWork,bordersIn,virtualGlobalBlockX,virtualGlobalBlockY,((numberOfCols+NUM_THREADS_X-1)/NUM_THREADS_X),usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,WARPS_FOR_BORDERS);
-					}
-
-					unpacker(&packed__shared__[packedIndex*sizeOfPackedVB],currentWork,usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y);
+				if (((WARPS_FOR_PACKING + WARPS_FOR_BORDERS) <= threadIdx.y) && (threadIdx.y < (WARPS_FOR_PACKING + WARPS_FOR_BORDERS + WARPS_FOR_BORDERS))) {
+					fillBorders(currentWork,bordersIn,virtualGlobalBlockX,virtualGlobalBlockY,((numberOfCols+NUM_THREADS_X-1)/NUM_THREADS_X),usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,WARPS_FOR_BORDERS);
 				}
+
+				unpacker(&packed__shared__[packedIndex*sizeOfPackedVB],currentWork,usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y);
+
 				__syncthreads();
 
-				{
-
-					int absRow = (virtualGlobalBlockY * NUM_THREADS_Y) + threadIdx.y;
-					int absCol = (virtualGlobalBlockX * NUM_THREADS_X) + threadIdx.x;
+				int absRow = (virtualGlobalBlockY * NUM_THREADS_Y) + threadIdx.y;
+				int absCol = (virtualGlobalBlockX * NUM_THREADS_X) + threadIdx.x;
 
 
-					if ((absRow < numberOfRows) && (absCol < numberOfCols)) {
-						eval(currentWork,nextWork,NUM_THREADS_X,NUM_THREADS_Y);
-					}
+				if ((absRow < numberOfRows) && (absCol < numberOfCols)) {
+					eval(currentWork,nextWork,NUM_THREADS_X,NUM_THREADS_Y);
 				}
 
 				__syncthreads();
 
-				{
-					if ((threadIdx.y < usedRows) && (threadIdx.y < WARPS_FOR_PACKING)) {
-						packer(nextWork,&packed__shared__[packedIndex*sizeOfPackedVB],usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y);
-					}
-
-					if ((WARPS_FOR_PACKING <= threadIdx.y) && (threadIdx.y < (WARPS_FOR_PACKING + WARPS_FOR_BORDERS))) {
-						share2glob(nextWork,getBordersVBfromXY(bordersOut,virtualGlobalBlockX,virtualGlobalBlockY,numberOfVirtualBlockX,NUM_THREADS_X,NUM_THREADS_Y),
-								usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,WARPS_FOR_BORDERS);
-					}
+				if ((threadIdx.y < usedRows) && (threadIdx.y < WARPS_FOR_PACKING)) {
+					packer(nextWork,&packed__shared__[packedIndex*sizeOfPackedVB],usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y);
 				}
+
+				if ((WARPS_FOR_PACKING <= threadIdx.y) && (threadIdx.y < (WARPS_FOR_PACKING + WARPS_FOR_BORDERS))) {
+					share2glob(nextWork,getBordersVBfromXY(bordersOut,virtualGlobalBlockX,virtualGlobalBlockY,numberOfVirtualBlockX,NUM_THREADS_X,NUM_THREADS_Y),
+							usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,WARPS_FOR_BORDERS);
+				}
+
+				__syncthreads();
 
 				// this is not necessary on last iteration
 				// "NOTIFY"
@@ -513,39 +543,62 @@ __global__ void kernel(byte* input, byte* output,const int numberOfRows,const in
 	}
 
 	// DOR K - write to global
-	{
-		int virtualGlobalBlockY = blockIdx.y + (blockIdx.x / numberOfVirtualBlockX);
-		int virtualGlobalBlockX = blockIdx.x % numberOfVirtualBlockX;
+	virtualGlobalBlockY = blockIdx.y + (blockIdx.x / numberOfVirtualBlockX);
+	virtualGlobalBlockX = blockIdx.x % numberOfVirtualBlockX;
 
-		int packedIndex = 0;
+	packedIndex = 0;
 
-		while (virtualGlobalBlockY < numberOfVirtualBlockY) {
-			while (virtualGlobalBlockX < numberOfVirtualBlockX) {
+	while (virtualGlobalBlockY < numberOfVirtualBlockY) {
+		while (virtualGlobalBlockX < numberOfVirtualBlockX) {
 
-				int usedCols = min(NUM_THREADS_X,numberOfCols-(virtualGlobalBlockX * NUM_THREADS_X));
-				int usedRows = min(NUM_THREADS_Y,numberOfRows-(virtualGlobalBlockY * NUM_THREADS_Y));
+			int usedCols = min(NUM_THREADS_X,numberOfCols-(virtualGlobalBlockX * NUM_THREADS_X));
+			int usedRows = min(NUM_THREADS_Y,numberOfRows-(virtualGlobalBlockY * NUM_THREADS_Y));
 
-				{
-					int absRow = (virtualGlobalBlockY * NUM_THREADS_Y) + threadIdx.y;
-					int absCol = (virtualGlobalBlockX * NUM_THREADS_X) + threadIdx.x;
-					unpacker(&packed__shared__[packedIndex*sizeOfPackedVB],currentWork,usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y);
+			int absRow = (virtualGlobalBlockY * NUM_THREADS_Y) + threadIdx.y;
+			int absCol = (virtualGlobalBlockX * NUM_THREADS_X) + threadIdx.x;
 
-					if ((absRow < numberOfRows) && (absCol < numberOfCols)) {
-						out[(absRow+1)*(numberOfCols+GLOBAL_MARGIN_SIZE)+absCol+1] = currentWork[(threadIdx.y+1)*(NUM_THREADS_X+MARGIN_SIZE_COLS)+threadIdx.x+1];
-					}
-				}
-
-				virtualGlobalBlockX += gridDimx;
-				packedIndex +=1;
-
-				byte* tmp = nextWork;
-				nextWork=currentWork;
-				currentWork=tmp;
-
+			if (((WARPS_FOR_PACKING + WARPS_FOR_BORDERS) <= threadIdx.y) && (threadIdx.y < (WARPS_FOR_PACKING + WARPS_FOR_BORDERS + WARPS_FOR_BORDERS))) {
+				fillBorders(currentWork,bordersIn,virtualGlobalBlockX,virtualGlobalBlockY,((numberOfCols+NUM_THREADS_X-1)/NUM_THREADS_X),usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y,WARPS_FOR_BORDERS);
 			}
 
-			virtualGlobalBlockY += virtualGlobalBlockX / numberOfVirtualBlockX;
-			virtualGlobalBlockX = virtualGlobalBlockX % numberOfVirtualBlockX;
+			unpacker(&packed__shared__[packedIndex*sizeOfPackedVB],currentWork,usedCols,usedRows,NUM_THREADS_X,NUM_THREADS_Y);
+
+			__syncthreads();
+
+			if ((absRow < numberOfRows) && (absCol < numberOfCols)) {
+				int numberOfColsWithMar = NUM_THREADS_X+MARGIN_SIZE_COLS;
+				byte *ptr = &(currentWork[(threadIdx.y+1)*(NUM_THREADS_X+MARGIN_SIZE_COLS)+threadIdx.x+1]);
+				byte *outPtr = &(out[(absRow+1)*(numberOfCols+GLOBAL_MARGIN_SIZE)+absCol+1]);
+				int neighbors = 0;
+
+				neighbors += ptr[-1 * numberOfColsWithMar + -1];
+				neighbors += ptr[-1 * numberOfColsWithMar +  0];
+				neighbors += ptr[-1 * numberOfColsWithMar +  1];
+				neighbors += ptr[ 0 * numberOfColsWithMar + -1];
+				neighbors += ptr[ 0 * numberOfColsWithMar +  1];
+				neighbors += ptr[ 1 * numberOfColsWithMar + -1];
+				neighbors += ptr[ 1 * numberOfColsWithMar +  0];
+				neighbors += ptr[ 1 * numberOfColsWithMar +  1];
+
+				if (neighbors == 3 ||
+						(ptr[0] == ALIVE && neighbors == 2) ) {
+					*outPtr = ALIVE;
+				}
+				else {
+					*outPtr = DEAD;
+				}
+			}
+
+			virtualGlobalBlockX += gridDimx;
+			packedIndex +=1;
+
+			byte* tmp = nextWork;
+			nextWork=currentWork;
+			currentWork=tmp;
+
 		}
+
+		virtualGlobalBlockY += virtualGlobalBlockX / numberOfVirtualBlockX;
+		virtualGlobalBlockX = virtualGlobalBlockX % numberOfVirtualBlockX;
 	}
 }

@@ -3,15 +3,10 @@
 #define __INC__
 
 #include "FieldReader.h"
-#include "stdio.h"
-#include "assert.h"
-
-#include <iostream>
-#include <fstream>
 
 // CUDA runtime
 
-//#define CUDA
+#define CUDA
 
 #ifdef CUDA
 #include <cuda.h>
@@ -38,7 +33,7 @@ __global__ void kernel(
 	int * blockGenerations
 );
 
-int host(int sizeX, int sizeY, byte* input, byte* output, int iterations);
+byte* host(int sizeX, int sizeY, byte* input, int iterations);
 
 
 #define NUM_BLOCKS_X 2
@@ -103,8 +98,6 @@ __forceinline__ __device__ void share2glob(byte * blockWithMargin,byte *BordersA
 
 #include "windows.h"
 
-
-
 using namespace std;
 
 #define NUM_BLOCKS_X 1
@@ -158,7 +151,7 @@ inline byte * getRIGHTBorder(byte * BordersAryPlace,int totalCols,int totalRows)
 
 
 void fillBorders(byte * blockWithMargin,byte *fullBordersArry,int VBx,int VBy,int totalVBCols,
-	int usedColsNoMar, int usedRowsNoMar, int totalCols,int totalRows,int numberOfWarpsToUse,int tx,int ty);
+	int usedColsNoMar, int usedRowsNoMar, int totalCols,int totalRows,int tx,int ty);
 
 void packer(byte* in, byte* out, int numUsedCols, int numUsedRows, int numTotalCols, int numTotalRows, int tx, int ty);
 void unpacker(byte* in, byte* out, int numUsedCols, int numUsedRows, int numTotalCols, int numTotalRows, int tx, int ty);
@@ -172,7 +165,7 @@ inline byte* getBordersVBfromXY(byte *fullBordersArry,int VBx,int VBy,int totalV
 	return &(fullBordersArry[((VBy+1)*(totalVBCols+VB_MARGIN_SIZE)+VBx+1)*  (   (totalCols)  *2 +  (totalRows)*2  )  ]);
 }
 
-void share2glob(byte * blockWithMargin,byte *BordersAryPlace,int usedColsNoMar, int usedRowsNoMar, int totalCols,int totalRows,int numberOfWarpsToUse,int tx, int ty);
+void share2glob(byte * blockWithMargin,byte *BordersAryPlace,int usedColsNoMar, int usedRowsNoMar, int totalCols,int totalRows,int tx, int ty);
 
 #endif
 
