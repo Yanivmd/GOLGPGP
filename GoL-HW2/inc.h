@@ -2,7 +2,7 @@
 
 #define __INC__
 
-#define MEASUREMENTS
+//#define MEASUREMENTS
 
 #include "FieldReader.h"
 

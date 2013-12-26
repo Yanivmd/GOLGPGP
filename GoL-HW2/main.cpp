@@ -25,7 +25,7 @@ int writeBufToFile(std::string outfilename, byte* buf, int fieldSizeX, int field
 #ifdef MEASUREMENTS
 	outf.open((outfilename+postfix).c_str());     //< write to file
 #else
-	outf.open((outfilename.c_str());     //< write to file
+	outf.open(outfilename.c_str());     //< write to file
 
 #endif
 	if (outf)
@@ -100,7 +100,9 @@ int main(int argc, char** argv)
 	assert(reader.buildField(in,NUMBER_OF_COLS+2,NUMBER_OF_ROWS+2)); //< leave dead margin
 	clearMargin(in,NUMBER_OF_COLS+2,NUMBER_OF_ROWS+2);
 
+#ifdef MEASUREMENTS
 	writeBufToFile(outfilename,"in",in,NUMBER_OF_COLS,NUMBER_OF_ROWS);
+#endif
 
 	byte *gpuout = host(in,iterations);
 #ifndef MEASUREMENTS
