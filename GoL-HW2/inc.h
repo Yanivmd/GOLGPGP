@@ -53,7 +53,12 @@ byte* host(int sizeX, int sizeY, byte* input, int iterations);
 #define GEN_MARGIN_SIZE 2
 
 #define WARPS_FOR_BORDERS 4
+
 #define WARPS_FOR_PACKING 4
+
+#define NUMBER_OF_COLS 1000
+#define NUMBER_OF_ROWS 1000
+
 
 __global__ void kernel(byte* input, byte* output,const int numberOfRows,const int numberOfCols,
 	int numberOfVirtualBlockX, int numberOfVirtualBlockY,
