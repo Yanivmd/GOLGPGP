@@ -6,8 +6,6 @@
 #include "inc.h"
 
 
-
-
 //using namespace std;
 
 
@@ -56,59 +54,51 @@ int cpuSim(int iterations, byte* ptr1, byte* ptr2, int fieldSizeX, int fieldSize
 
 int main(int argc, char** argv)
 {
-	//const int NUM_ARGS = 3;
-	//const int FIELD_SIZE_X = 1000;
-	//const int FIELD_SIZE_Y = 1000;
+	const int NUM_ARGS = 3;
 
-	// uncomment to read from program arguments
-	//if (argc != NUM_ARGS+1)
-	//{
-	//    printUsage(argc, argv);
-	//    return 1;
-	//}
-	//string infilename(argv[1]);
-	//string outfilename(argv[2]);
-	//int iterations = atoi(argv[3]);
-
-	string infilename("spaceship.lif");
-	string outfilename("spaceship.lif.out");
-	int iterations = 300;
+	if (argc != NUM_ARGS+1)
+	{
+	    printUsage(argc, argv);
+	    return 1;
+	}
+	string infilename(argv[1]);
+	string outfilename(argv[2]);
+	int iterations = atoi(argv[3]);
 
 	PatternBlock tblock;
 	FieldReader reader;
-	int fieldSizeX = 1000;       //<- FIELD_SIZE_X
-	int fieldSizeY = 1000;        //<- FIELD_SIZE_Y
 
-	byte *cpuin = new byte[(fieldSizeY+2)*(fieldSizeX+2)];
-	byte *cpuout = new byte[(fieldSizeY+2)*(fieldSizeX+2)];
+	byte *in = new byte[(NUMBER_OF_ROWS+2)*(NUMBER_OF_COLS+2)];
+#ifdef MEASUREMENTS
+	byte *cpuout = new byte[(NUMBER_OF_ROWS+2)*(NUMBER_OF_COLS+2)];
+#endif
 
 	assert(reader.readFile(infilename));
-	assert(reader.buildField(cpuin,fieldSizeX+2,fieldSizeY+2)); //< leave dead margin
-	clearMargin(cpuin,fieldSizeX+2,fieldSizeY+2);
-	//writeField(in,fieldSizeX+2,fieldSizeY+2,0);
+	assert(reader.buildField(in,NUMBER_OF_COLS+2,NUMBER_OF_ROWS+2)); //< leave dead margin
+	clearMargin(in,NUMBER_OF_COLS+2,NUMBER_OF_ROWS+2);
 
 	//	memcpy(gpuin,cpuin,(fieldSizeY+2)*(fieldSizeX+2));
-	writeBufToFile(outfilename,"gpuin",cpuin,fieldSizeX,fieldSizeY);
-	byte *gpuout = host(fieldSizeX,fieldSizeY,cpuin,iterations);
+	writeBufToFile(outfilename,"in",in,NUMBER_OF_COLS,NUMBER_OF_ROWS);
 
-	writeBufToFile(outfilename,"cpuin",cpuin,fieldSizeX,fieldSizeY);
-	cpuSim(iterations,cpuin,cpuout,fieldSizeX,fieldSizeY);
-	//writeField(ptr1,fieldSizeX+2,fieldSizeY+2,0,cout);  //< print to screen
+	byte *gpuout = host(in,iterations);
+	writeBufToFile(outfilename,"gpu",gpuout,NUMBER_OF_COLS,NUMBER_OF_ROWS);
 
+#ifdef MEASUREMENTS
+	cpuSim(iterations,in,cpuout,NUMBER_OF_COLS,NUMBER_OF_ROWS);
 	if (iterations % 2 == 0) {
 		byte *tmp = cpuout;
-		cpuout = cpuin;
-		cpuin = tmp;
+		cpuout = in;
+		in = tmp;
 	}
-	writeBufToFile(outfilename,"gpu",gpuout,fieldSizeX,fieldSizeY);
-	writeBufToFile(outfilename,"cpu",cpuout,fieldSizeX,fieldSizeY);
+
+	writeBufToFile(outfilename,"cpu",cpuout,NUMBER_OF_COLS,NUMBER_OF_ROWS);
 
 	int errors = 0;
-	for(int j=0;j<fieldSizeY;j++) {
-		for(int i=0;i<fieldSizeX;i++) {
-			if (cpuout[(j+1)*(fieldSizeX+2) + (i+1)] != gpuout[(j+1)*(fieldSizeX+2) + (i+1)]) {
+	for(int j=0;j<NUMBER_OF_ROWS;j++) {
+		for(int i=0;i<NUMBER_OF_COLS;i++) {
+			if (cpuout[(j+1)*(NUMBER_OF_COLS+2) + (i+1)] != gpuout[(j+1)*(NUMBER_OF_COLS+2) + (i+1)]) {
 				errors +=1;
-				std::cout << "fucked " << j << " " << i << " (CPU=[" << (int)(cpuout[(j+1)*(fieldSizeX+2) + (i+1)]) << "],GPU=[" << (int)(gpuout[(j+1)*(fieldSizeX+2) + (i+1)]) << "])\n";
+				std::cout << "fucked " << j << " " << i << " (CPU=[" << (int)(cpuout[(j+1)*(NUMBER_OF_COLS+2) + (i+1)]) << "],GPU=[" << (int)(gpuout[(j+1)*(NUMBER_OF_COLS+2) + (i+1)]) << "])\n";
 				if (errors == 5)
 					break;
 			}
@@ -123,8 +113,10 @@ int main(int argc, char** argv)
 		std::cout << "all good\n";
 	}
 
-	delete[] cpuin;
 	delete[] cpuout;
+#endif
+
+	delete[] in;
 	delete[] gpuout;
 
 	return 0;
