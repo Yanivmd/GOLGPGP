@@ -5,11 +5,6 @@
 
 #include "inc.h"
 
-
-//using namespace std;
-
-
-
 // make cells on margin of field dead
 void clearMargin(byte* field, int sizeX, int sizeY);
 
@@ -17,16 +12,22 @@ void clearMargin(byte* field, int sizeX, int sizeY);
 void writeField(byte* field, int sizeX, int sizeY, int marginSize = 0,
 		std::ostream& outs = std::cout);
 
-// simple host implementation of computing the next step
-void evolve(byte* orig, byte* next, int sizeX, int sizeY);
-
 // print usage information
 void printUsage(int argc, char** argv);
 
+#ifdef MEASUREMENTS
 int writeBufToFile(std::string outfilename, std::string postfix, byte* buf, int fieldSizeX, int fieldSizeY)
+#else
+int writeBufToFile(std::string outfilename, byte* buf, int fieldSizeX, int fieldSizeY)
+#endif
 {
 	std::ofstream outf;
+#ifdef MEASUREMENTS
 	outf.open((outfilename+postfix).c_str());     //< write to file
+#else
+	outf.open((outfilename.c_str());     //< write to file
+
+#endif
 	if (outf)
 	{
 		// print to file without a 1-wide margin
@@ -36,21 +37,43 @@ int writeBufToFile(std::string outfilename, std::string postfix, byte* buf, int 
 	return 0;
 }
 
+#ifdef MEASUREMENTS
+void evolve(byte* orig, byte* next, int sizeX, int sizeY)
+{
+	std::fill_n(next,sizeX * sizeY, DEAD);
+	for (int y = 1; y < sizeY-1; ++y)
+	{
+		for (int x = 1; x < sizeX-1; ++x)
+		{
+			byte* ptr = &orig[y * sizeX + x];
+			int neighbors = 0;
+			if (ptr[-1 * sizeX + -1] == ALIVE) neighbors++;
+			if (ptr[-1 * sizeX +  0] == ALIVE) neighbors++;
+			if (ptr[-1 * sizeX +  1] == ALIVE) neighbors++;
+			if (ptr[ 0 * sizeX + -1] == ALIVE) neighbors++;
+			if (ptr[ 0 * sizeX +  1] == ALIVE) neighbors++;
+			if (ptr[ 1 * sizeX + -1] == ALIVE) neighbors++;
+			if (ptr[ 1 * sizeX +  0] == ALIVE) neighbors++;
+			if (ptr[ 1 * sizeX +  1] == ALIVE) neighbors++;
 
-
-
-
+			if (neighbors == 3 ||
+					(ptr[0] == ALIVE && neighbors == 2) )
+				next[y * sizeX + x ] = ALIVE;
+		}
+	}
+	clearMargin(next, sizeX, sizeY);
+}
 
 int cpuSim(int iterations, byte* ptr1, byte* ptr2, int fieldSizeX, int fieldSizeY)
 {
 	for (int i=0; i<iterations; i++)
 	{
 		evolve(ptr1,ptr2,fieldSizeX+2,fieldSizeY+2);
-		//writeField(ptr2,fieldSizeX+2,fieldSizeY+2);
 		byte* tmp = ptr1; ptr1 = ptr2; ptr2 = tmp;
 	}
 	return 0;
 }
+#endif
 
 int main(int argc, char** argv)
 {
@@ -77,13 +100,14 @@ int main(int argc, char** argv)
 	assert(reader.buildField(in,NUMBER_OF_COLS+2,NUMBER_OF_ROWS+2)); //< leave dead margin
 	clearMargin(in,NUMBER_OF_COLS+2,NUMBER_OF_ROWS+2);
 
-	//	memcpy(gpuin,cpuin,(fieldSizeY+2)*(fieldSizeX+2));
 	writeBufToFile(outfilename,"in",in,NUMBER_OF_COLS,NUMBER_OF_ROWS);
 
-	byte *gpuout = host(NUMBER_OF_COLS,NUMBER_OF_ROWS,in,iterations);
+	byte *gpuout = host(in,iterations);
+#ifndef MEASUREMENTS
+	writeBufToFile(outfilename,gpuout,NUMBER_OF_COLS,NUMBER_OF_ROWS);
+#else
 	writeBufToFile(outfilename,"gpu",gpuout,NUMBER_OF_COLS,NUMBER_OF_ROWS);
 
-#ifdef MEASUREMENTS
 	cpuSim(iterations,in,cpuout,NUMBER_OF_COLS,NUMBER_OF_ROWS);
 	if (iterations % 2 == 0) {
 		byte *tmp = cpuout;
@@ -133,8 +157,6 @@ void clearMargin(byte* field, int sizeX, int sizeY)
 	std::fill_n(&field[sizeX*(sizeY-1)],sizeX,DEAD);
 }
 
-
-
 void writeField(byte* field, int sizeX, int sizeY, int marginSize,
 		std::ostream& outs)
 {
@@ -158,39 +180,6 @@ void writeField(byte* field, int sizeX, int sizeY, int marginSize,
 		ptr += m;       //< skip right margin
 		outs << std::endl;
 	}
-}
-
-void evolve(byte* orig, byte* next, int sizeX, int sizeY)
-{
-	std::fill_n(next,sizeX * sizeY, DEAD);
-	for (int y = 1; y < sizeY-1; ++y)
-	{
-		for (int x = 1; x < sizeX-1; ++x)
-		{
-			byte* ptr = &orig[y * sizeX + x];
-			int neighbors = 0;
-			/*
-            int state;
-            if (ptr[0] == ALIVE)
-                state = ALIVE;
-            else
-                state = DEAD;
-			 */
-			if (ptr[-1 * sizeX + -1] == ALIVE) neighbors++;
-			if (ptr[-1 * sizeX +  0] == ALIVE) neighbors++;
-			if (ptr[-1 * sizeX +  1] == ALIVE) neighbors++;
-			if (ptr[ 0 * sizeX + -1] == ALIVE) neighbors++;
-			if (ptr[ 0 * sizeX +  1] == ALIVE) neighbors++;
-			if (ptr[ 1 * sizeX + -1] == ALIVE) neighbors++;
-			if (ptr[ 1 * sizeX +  0] == ALIVE) neighbors++;
-			if (ptr[ 1 * sizeX +  1] == ALIVE) neighbors++;
-
-			if (neighbors == 3 ||
-					(ptr[0] == ALIVE && neighbors == 2) )
-				next[y * sizeX + x ] = ALIVE;
-		}
-	}
-	clearMargin(next, sizeX, sizeY);
 }
 
 void printUsage(int argc, char** argv)
